@@ -1,78 +1,99 @@
-"""Generated brand assets: app icon, splash screen, and a reusable card
-drop-shadow -- drawn programmatically so the app ships with a real icon and
-launch screen without needing external image files."""
+"""Brand assets: the real Foxtale logo (loaded from assets/), monochrome
+icon helpers, and a reusable card drop-shadow.
+"""
 
+from pathlib import Path
+
+import qtawesome as qta
 from PySide6.QtCore import QRectF, Qt
-from PySide6.QtGui import QColor, QFont, QIcon, QLinearGradient, QPainter, QPixmap
+from PySide6.QtGui import QColor, QFont, QIcon, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QGraphicsDropShadowEffect, QWidget
 
+from gui import theme as _theme
+
 NAVY = "#0b1224"
-FOX = "#ff8a3d"
-FOX_DARK = "#f2721f"
-ACCENT = "#3b8dff"
+FOX = _theme.FOX
+FOX_HOVER = _theme.FOX_HOVER
+ACCENT = _theme.ACCENT
+ACCENT_TEXT = _theme.ACCENT_TEXT
+
+_ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets"
+_LOGO_FULL_PATH = _ASSETS_DIR / "logo_full.png"   # fox art + "foxtale" + tagline
+_LOGO_MARK_PATH = _ASSETS_DIR / "logo_mark.png"   # just the fox line-art, transparent
 
 
-def _brand_mark(size: int) -> QPixmap:
-    """A rounded-square gradient lettermark ('F') -- reliable across
-    platforms, unlike drawing an emoji glyph via QPainter."""
+def icon(name: str, color: str) -> QIcon:
+    """A flat, single-color vector icon (Font Awesome via qtawesome) --
+    never a multicolor emoji glyph."""
+    return qta.icon(name, color=color)
+
+
+def icon_pixmap(name: str, color: str, size: int = 20) -> QPixmap:
+    return qta.icon(name, color=color).pixmap(size, size)
+
+
+def logo_mark_pixmap(height: int = 30) -> QPixmap:
+    """Just the fox line-art (no wordmark), scaled to a target height,
+    for small contexts like the sidebar."""
+    pm = QPixmap(str(_LOGO_MARK_PATH))
+    return pm.scaledToHeight(height, Qt.TransformationMode.SmoothTransformation)
+
+
+def logo_full_pixmap(height: int = 160) -> QPixmap:
+    """The full lockup -- fox art + 'foxtale' + 'YOU GLOW DIFFERENT' -- as
+    it appears in the source logo file, scaled to a target height."""
+    pm = QPixmap(str(_LOGO_FULL_PATH))
+    return pm.scaledToHeight(height, Qt.TransformationMode.SmoothTransformation)
+
+
+# Kept as `brand_pixmap` for existing call sites.
+def brand_pixmap(height: int = 30) -> QPixmap:
+    return logo_mark_pixmap(height)
+
+
+def app_icon(size: int = 256) -> QIcon:
+    """Taskbar/window icon: the real fox mark centered on a white rounded
+    tile with a thin brand-orange border, so it reads clearly at small
+    sizes against any taskbar background."""
     pixmap = QPixmap(size, size)
     pixmap.fill(Qt.GlobalColor.transparent)
 
     painter = QPainter(pixmap)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-    rect = QRectF(0, 0, size, size)
-    grad = QLinearGradient(0, 0, size, size)
-    grad.setColorAt(0, QColor(ACCENT))
-    grad.setColorAt(1, QColor(FOX))
-    painter.setBrush(grad)
-    painter.setPen(Qt.PenStyle.NoPen)
-    painter.drawRoundedRect(rect, size * 0.26, size * 0.26)
+    border_w = max(2, size * 0.05)
+    rect = QRectF(border_w / 2, border_w / 2, size - border_w, size - border_w)
+    painter.setBrush(QColor("white"))
+    painter.setPen(QPen(QColor(FOX), border_w))
+    painter.drawRoundedRect(rect, size * 0.22, size * 0.22)
 
-    font = QFont("Segoe UI", int(size * 0.5), QFont.Weight.Black)
-    painter.setFont(font)
-    painter.setPen(QColor("white"))
-    painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, "F")
+    mark = logo_mark_pixmap(int(size * 0.5))
+    painter.drawPixmap(int((size - mark.width()) / 2), int((size - mark.height()) / 2), mark)
 
     painter.end()
-    return pixmap
+    return QIcon(pixmap)
 
 
-def app_icon(size: int = 256) -> QIcon:
-    return QIcon(_brand_mark(size))
-
-
-def brand_pixmap(size: int = 28) -> QPixmap:
-    return _brand_mark(size)
-
-
-def splash_pixmap(width: int = 520, height: int = 320) -> QPixmap:
+def splash_pixmap(width: int = 480, height: int = 320) -> QPixmap:
     pixmap = QPixmap(width, height)
     painter = QPainter(pixmap)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-    rect = QRectF(0, 0, width, height)
-    grad = QLinearGradient(0, 0, width, height)
-    grad.setColorAt(0, QColor(NAVY))
-    grad.setColorAt(1, QColor("#16214a"))
-    painter.setBrush(grad)
-    painter.setPen(Qt.PenStyle.NoPen)
-    painter.drawRoundedRect(rect, 22, 22)
+    rect = QRectF(1, 1, width - 2, height - 2)
+    painter.setBrush(QColor("white"))
+    painter.setPen(QPen(QColor("#e7e9f0"), 2))
+    painter.drawRoundedRect(rect, 18, 18)
 
-    mark = _brand_mark(84)
-    painter.drawPixmap(width // 2 - 42, 56, mark)
+    logo = logo_full_pixmap(150)
+    painter.drawPixmap((width - logo.width()) // 2, 56, logo)
 
-    painter.setPen(QColor("white"))
-    painter.setFont(QFont("Segoe UI", 26, QFont.Weight.Black))
-    painter.drawText(QRectF(0, 156, width, 44), Qt.AlignmentFlag.AlignCenter, "Foxtale")
-
-    painter.setPen(QColor("#9aa6c3"))
+    painter.setPen(QColor("#5a6478"))
     painter.setFont(QFont("Segoe UI", 11))
-    painter.drawText(QRectF(0, 198, width, 28), Qt.AlignmentFlag.AlignCenter, "AI-Powered Visual Skin Analysis")
+    painter.drawText(QRectF(0, 222, width, 28), Qt.AlignmentFlag.AlignCenter, "AI-Powered Visual Skin Analysis")
 
-    painter.setPen(QColor("#5ea8ff"))
+    painter.setPen(QColor(ACCENT_TEXT))
     painter.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
-    painter.drawText(QRectF(0, height - 44, width, 24), Qt.AlignmentFlag.AlignCenter, "Starting up…")
+    painter.drawText(QRectF(0, height - 40, width, 24), Qt.AlignmentFlag.AlignCenter, "Starting up…")
 
     painter.end()
     return pixmap

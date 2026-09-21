@@ -1,8 +1,11 @@
-"""Export a scan as an annotated PNG (markers drawn on the photo) and/or a
-one-page PDF report (summary cards + regions + recommendations + disclaimer).
+"""Export a scan as an annotated PNG (markers drawn on the photo), a
+one-page PDF report for a single scan, or a multi-scan progress report
+covering a whole date range (summary cards + regions + recommendations +
+disclaimer, or a trend chart + table across scans).
 """
 
-from typing import List, Optional
+from datetime import datetime
+from typing import TYPE_CHECKING, List, Optional
 
 import cv2
 import numpy as np
@@ -12,6 +15,9 @@ from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
 
 from engine.schemas import DISCLAIMER, RegionObservation, SkinAnalysis
+
+if TYPE_CHECKING:
+    from gui.core.storage import ScanRecord
 
 CATEGORY_COLOR_BGR = {
     "Acne-like spots": (60, 60, 220),
@@ -125,6 +131,88 @@ def build_pdf_report(
             y = page_h - margin
 
     y -= 6 * mm
+    c.setFillColor(colors.HexColor("#FF8A3D"))
+    c.setFont("Helvetica-Bold", 9)
+    c.drawString(margin, y, "AI Disclaimer:")
+    y -= 5 * mm
+    c.setFillColorRGB(0.2, 0.22, 0.3)
+    c.setFont("Helvetica", 8.5)
+    _draw_wrapped(c, DISCLAIMER, margin, y, page_w - 2 * margin, size=8.5)
+
+    c.save()
+
+
+def build_progress_report(
+    dest_path: str,
+    records: List["ScanRecord"],
+    chart_image_path: Optional[str] = None,
+    headline: Optional[str] = None,
+) -> None:
+    """A multi-scan progress report: date range, an optional trend-chart
+    image (rendered elsewhere via TrendChart.fig.savefig), a rule-based
+    headline, and a compact table of every scan in the set."""
+    c = canvas.Canvas(dest_path, pagesize=A4)
+    page_w, page_h = A4
+    margin = 18 * mm
+    y = page_h - margin
+
+    ordered = sorted(records, key=lambda r: r.timestamp)
+
+    c.setFillColorRGB(0.04, 0.07, 0.14)
+    c.setFont("Helvetica-Bold", 20)
+    c.drawString(margin, y, "Foxtale — Progress Report")
+    y -= 9 * mm
+
+    c.setFont("Helvetica", 10)
+    c.setFillColorRGB(0.35, 0.4, 0.5)
+    if ordered:
+        start = datetime.fromisoformat(ordered[0].timestamp).strftime("%b %d, %Y")
+        end = datetime.fromisoformat(ordered[-1].timestamp).strftime("%b %d, %Y")
+        c.drawString(margin, y, f"{len(ordered)} scan(s) from {start} to {end}")
+    y -= 8 * mm
+
+    if headline:
+        c.setFillColorRGB(0.04, 0.07, 0.14)
+        c.setFont("Helvetica-Oblique", 10.5)
+        y = _draw_wrapped(c, headline, margin, y, page_w - 2 * margin, font="Helvetica-Oblique", size=10.5)
+        y -= 2 * mm
+
+    if chart_image_path:
+        chart_w = page_w - 2 * margin
+        chart_h = chart_w * 0.45
+        c.drawImage(chart_image_path, margin, y - chart_h, width=chart_w, height=chart_h, preserveAspectRatio=True)
+        y -= chart_h + 8 * mm
+
+    c.setFont("Helvetica-Bold", 12)
+    c.setFillColorRGB(0.04, 0.07, 0.14)
+    headers = ["Date", "Spots", "Redness", "Texture", "Dryness"]
+    col_x = [margin, margin + 45 * mm, margin + 80 * mm, margin + 115 * mm, margin + 150 * mm]
+    for x, h in zip(col_x, headers):
+        c.drawString(x, y, h)
+    y -= 6 * mm
+    c.line(margin, y + 2 * mm, page_w - margin, y + 2 * mm)
+
+    c.setFont("Helvetica", 9)
+    for r in reversed(ordered):  # newest first in the table
+        if y < 30 * mm:
+            c.showPage()
+            y = page_h - margin
+        a = r.analysis
+        values = [
+            datetime.fromisoformat(r.timestamp).strftime("%Y-%m-%d %H:%M"),
+            a.acne_like_spots.level.title(),
+            a.redness.level.title(),
+            a.texture.level.title(),
+            a.dryness_indicators.level.title(),
+        ]
+        for x, v in zip(col_x, values):
+            c.drawString(x, y, v)
+        y -= 6 * mm
+
+    y -= 6 * mm
+    if y < 30 * mm:
+        c.showPage()
+        y = page_h - margin
     c.setFillColor(colors.HexColor("#FF8A3D"))
     c.setFont("Helvetica-Bold", 9)
     c.drawString(margin, y, "AI Disclaimer:")

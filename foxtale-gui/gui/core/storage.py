@@ -18,6 +18,7 @@ import cv2
 import numpy as np
 
 from engine.calibration import CalibrationProfile
+from engine.quality import QualityResult
 from engine.schemas import RegionObservation, SkinAnalysis
 
 APP_DIR = Path.home() / ".foxtale_gui"
@@ -34,7 +35,18 @@ DEFAULT_SETTINGS = {
     "camera_index": 0,
     "camera_width": 1280,
     "camera_height": 720,
+    "capture_countdown": True,
+    "reminder_days": 7,  # 0 = off
+    "minimize_to_tray": False,
+    "auto_capture": False,
+    "standardised_mode": False,
+    "app_lock_enabled": False,
+    "lock_on_start": True,
+    "lock_after_minutes": 0,  # 0 = never auto-lock from inactivity
 }
+
+ROUTINE_OPTIONS = ["Cleanser", "Moisturiser", "Sunscreen", "Other"]
+ENVIRONMENT_OPTIONS = ["Travel", "Outdoor exposure", "High humidity", "Low humidity"]
 
 
 @dataclass
@@ -44,6 +56,14 @@ class ScanRecord:
     analysis: SkinAnalysis
     regions: List[RegionObservation]
     image_path: Optional[str] = None
+    note: str = ""
+    starred: bool = False
+    quality: Optional[QualityResult] = None
+    journal: dict = None  # {"routine": [...], "environment": [...]}
+
+    def __post_init__(self):
+        if self.journal is None:
+            self.journal = {"routine": [], "environment": []}
 
 
 def _ensure_dirs() -> None:
@@ -63,6 +83,16 @@ def _connect() -> sqlite3.Connection:
             image_path TEXT
         )"""
     )
+    # Migrate older databases created before notes/starring existed.
+    existing_cols = {row[1] for row in conn.execute("PRAGMA table_info(scans)")}
+    if "note" not in existing_cols:
+        conn.execute("ALTER TABLE scans ADD COLUMN note TEXT NOT NULL DEFAULT ''")
+    if "starred" not in existing_cols:
+        conn.execute("ALTER TABLE scans ADD COLUMN starred INTEGER NOT NULL DEFAULT 0")
+    if "quality_json" not in existing_cols:
+        conn.execute("ALTER TABLE scans ADD COLUMN quality_json TEXT")
+    if "journal_json" not in existing_cols:
+        conn.execute("ALTER TABLE scans ADD COLUMN journal_json TEXT")
     return conn
 
 
@@ -109,7 +139,9 @@ def clear_calibration() -> None:
 
 # ------------------------------------------------------------------ scans
 
-def make_transient_record(analysis: SkinAnalysis, regions: List[RegionObservation]) -> ScanRecord:
+def make_transient_record(
+    analysis: SkinAnalysis, regions: List[RegionObservation], quality: Optional[QualityResult] = None,
+) -> ScanRecord:
     """A ScanRecord that is shown in the UI but never written to disk --
     used when the user has "Save scan history" turned off."""
     return ScanRecord(
@@ -118,6 +150,7 @@ def make_transient_record(analysis: SkinAnalysis, regions: List[RegionObservatio
         analysis=analysis,
         regions=regions,
         image_path=None,
+        quality=quality,
     )
 
 
@@ -126,6 +159,7 @@ def save_scan(
     regions: List[RegionObservation],
     image_bgr: Optional[np.ndarray],
     save_image: bool,
+    quality: Optional[QualityResult] = None,
 ) -> ScanRecord:
     _ensure_dirs()
     scan_id = str(uuid.uuid4())
@@ -136,38 +170,55 @@ def save_scan(
         image_path = str(IMAGES_DIR / f"{scan_id}.jpg")
         cv2.imwrite(image_path, image_bgr)
 
+    quality_json = json.dumps(quality.to_dict()) if quality else None
+
     conn = _connect()
     with conn:
         conn.execute(
-            "INSERT INTO scans (id, timestamp, analysis_json, regions_json, image_path) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO scans (id, timestamp, analysis_json, regions_json, image_path, note, starred, "
+            "quality_json, journal_json) VALUES (?, ?, ?, ?, ?, '', 0, ?, NULL)",
             (
                 scan_id,
                 timestamp,
                 json.dumps(analysis.to_dict()),
                 json.dumps([r.to_dict() for r in regions]),
                 image_path,
+                quality_json,
             ),
         )
     conn.close()
 
-    return ScanRecord(id=scan_id, timestamp=timestamp, analysis=analysis, regions=regions, image_path=image_path)
+    return ScanRecord(
+        id=scan_id, timestamp=timestamp, analysis=analysis, regions=regions,
+        image_path=image_path, quality=quality,
+    )
+
+
+_SELECT_COLUMNS = (
+    "id, timestamp, analysis_json, regions_json, image_path, note, starred, quality_json, journal_json"
+)
 
 
 def _row_to_record(row) -> ScanRecord:
-    scan_id, timestamp, analysis_json, regions_json, image_path = row
+    (scan_id, timestamp, analysis_json, regions_json, image_path, note, starred,
+     quality_json, journal_json) = row
     return ScanRecord(
         id=scan_id,
         timestamp=timestamp,
         analysis=SkinAnalysis.from_dict(json.loads(analysis_json)),
         regions=[RegionObservation.from_dict(r) for r in json.loads(regions_json)],
         image_path=image_path,
+        note=note or "",
+        starred=bool(starred),
+        quality=QualityResult.from_dict(json.loads(quality_json)) if quality_json else None,
+        journal=json.loads(journal_json) if journal_json else {"routine": [], "environment": []},
     )
 
 
 def list_scans() -> List[ScanRecord]:
     conn = _connect()
     rows = conn.execute(
-        "SELECT id, timestamp, analysis_json, regions_json, image_path FROM scans ORDER BY timestamp DESC"
+        f"SELECT {_SELECT_COLUMNS} FROM scans ORDER BY timestamp DESC"
     ).fetchall()
     conn.close()
     return [_row_to_record(r) for r in rows]
@@ -176,11 +227,35 @@ def list_scans() -> List[ScanRecord]:
 def get_scan(scan_id: str) -> Optional[ScanRecord]:
     conn = _connect()
     row = conn.execute(
-        "SELECT id, timestamp, analysis_json, regions_json, image_path FROM scans WHERE id = ?",
+        f"SELECT {_SELECT_COLUMNS} FROM scans WHERE id = ?",
         (scan_id,),
     ).fetchone()
     conn.close()
     return _row_to_record(row) if row else None
+
+
+def set_scan_note(scan_id: str, note: str) -> None:
+    conn = _connect()
+    with conn:
+        conn.execute("UPDATE scans SET note = ? WHERE id = ?", (note, scan_id))
+    conn.close()
+
+
+def set_scan_starred(scan_id: str, starred: bool) -> None:
+    conn = _connect()
+    with conn:
+        conn.execute("UPDATE scans SET starred = ? WHERE id = ?", (1 if starred else 0, scan_id))
+    conn.close()
+
+
+def set_scan_journal(scan_id: str, routine: List[str], environment: List[str]) -> None:
+    conn = _connect()
+    with conn:
+        conn.execute(
+            "UPDATE scans SET journal_json = ? WHERE id = ?",
+            (json.dumps({"routine": routine, "environment": environment}), scan_id),
+        )
+    conn.close()
 
 
 def delete_scan(scan_id: str) -> None:
@@ -211,6 +286,8 @@ def export_history_json(dest_path: str) -> int:
             "timestamp": r.timestamp,
             "analysis": r.analysis.to_dict(),
             "regions": [o.to_dict() for o in r.regions],
+            "note": r.note,
+            "starred": r.starred,
         }
         for r in records
     ]
@@ -225,16 +302,133 @@ def import_history_json(src_path: str) -> int:
     with conn:
         for entry in data:
             conn.execute(
-                "INSERT OR IGNORE INTO scans (id, timestamp, analysis_json, regions_json, image_path) "
-                "VALUES (?, ?, ?, ?, ?)",
+                "INSERT OR IGNORE INTO scans (id, timestamp, analysis_json, regions_json, image_path, note, starred) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
                 (
                     entry.get("id", str(uuid.uuid4())),
                     entry["timestamp"],
                     json.dumps(entry["analysis"]),
                     json.dumps(entry["regions"]),
                     None,
+                    entry.get("note", ""),
+                    1 if entry.get("starred") else 0,
                 ),
             )
             count += 1
     conn.close()
     return count
+
+
+def export_history_csv(dest_path: str) -> int:
+    """A flat, spreadsheet-friendly export -- one row per scan, one column
+    per category level/confidence, for users who want to chart their own
+    progress in Excel/Sheets rather than the app's built-in Trends tab."""
+    import csv
+
+    records = list_scans()
+    with open(dest_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow([
+            "timestamp", "starred", "note",
+            "acne_level", "acne_confidence", "acne_count",
+            "redness_level", "redness_confidence",
+            "texture_level", "texture_confidence",
+            "dryness_level", "dryness_confidence",
+        ])
+        for r in records:
+            a = r.analysis
+            writer.writerow([
+                r.timestamp, r.starred, r.note,
+                a.acne_like_spots.level, a.acne_like_spots.confidence, a.acne_like_spots.count or 0,
+                a.redness.level, a.redness.confidence,
+                a.texture.level, a.texture.confidence,
+                a.dryness_indicators.level, a.dryness_indicators.confidence,
+            ])
+    return len(records)
+
+
+def days_since_last_scan() -> Optional[int]:
+    """None if there's no history yet."""
+    conn = _connect()
+    row = conn.execute("SELECT timestamp FROM scans ORDER BY timestamp DESC LIMIT 1").fetchone()
+    conn.close()
+    if not row:
+        return None
+    last = datetime.fromisoformat(row[0])
+    return (datetime.now() - last).days
+
+
+# ------------------------------------------------------- full data backup
+
+def export_full_backup(dest_zip_path: str) -> None:
+    """Everything -- settings, calibration, history, and any saved images --
+    in one .zip, for moving to a new machine or as a safety-net backup.
+    Distinct from the History page's JSON/CSV export, which is scan data
+    only (no settings/calibration/images)."""
+    import zipfile
+
+    _ensure_dirs()
+    with zipfile.ZipFile(dest_zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        if SETTINGS_PATH.exists():
+            zf.write(SETTINGS_PATH, "settings.json")
+        if CALIBRATION_PATH.exists():
+            zf.write(CALIBRATION_PATH, "calibration.json")
+        if DB_PATH.exists():
+            zf.write(DB_PATH, "history.db")
+        if IMAGES_DIR.exists():
+            for img_path in IMAGES_DIR.glob("*.jpg"):
+                zf.write(img_path, f"images/{img_path.name}")
+
+
+def get_data_stats() -> dict:
+    """Powers the Privacy Dashboard: exactly what exists locally, in plain
+    numbers, so the app's "nothing leaves this device" claim is verifiable
+    rather than just asserted."""
+    conn = _connect()
+    scan_count = conn.execute("SELECT COUNT(*) FROM scans").fetchone()[0]
+    conn.close()
+
+    image_files = list(IMAGES_DIR.glob("*.jpg")) if IMAGES_DIR.exists() else []
+    images_size = sum(f.stat().st_size for f in image_files)
+    db_size = DB_PATH.stat().st_size if DB_PATH.exists() else 0
+
+    return {
+        "scan_count": scan_count,
+        "image_count": len(image_files),
+        "db_size_bytes": db_size,
+        "images_size_bytes": images_size,
+        "calibration_enabled": CALIBRATION_PATH.exists(),
+    }
+
+
+def delete_all_personal_data() -> None:
+    """Scan history, saved images, and calibration -- but deliberately NOT
+    settings.json, so a user's app preferences (theme, reminders, etc.)
+    survive a personal-data wipe. Used by the Privacy Dashboard's
+    "Delete All Data" action."""
+    delete_all_scans()
+    clear_calibration()
+
+
+def import_full_backup(src_zip_path: str) -> None:
+    """Restores a backup made by export_full_backup(), overwriting whatever
+    is currently in ~/.foxtale_gui. Callers should confirm with the user
+    first -- this is destructive to the current local data."""
+    import zipfile
+
+    _ensure_dirs()
+    with zipfile.ZipFile(src_zip_path, "r") as zf:
+        names = set(zf.namelist())
+        if not ({"settings.json", "history.db"} & names):
+            raise ValueError("This doesn't look like a Foxtale backup file.")
+
+        if "settings.json" in names:
+            SETTINGS_PATH.write_bytes(zf.read("settings.json"))
+        if "calibration.json" in names:
+            CALIBRATION_PATH.write_bytes(zf.read("calibration.json"))
+        if "history.db" in names:
+            DB_PATH.write_bytes(zf.read("history.db"))
+        for name in names:
+            if name.startswith("images/") and not name.endswith("/"):
+                out_path = IMAGES_DIR / Path(name).name
+                out_path.write_bytes(zf.read(name))

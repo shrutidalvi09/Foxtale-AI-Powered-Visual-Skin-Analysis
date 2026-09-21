@@ -5,6 +5,7 @@ listing available camera devices and a "burst capture" that grabs several
 frames and keeps the sharpest one.
 """
 
+from collections import deque
 from typing import List, Optional, Tuple
 
 import cv2
@@ -13,8 +14,11 @@ from PySide6.QtCore import QThread, Signal
 
 from engine.face_detection import quick_face_check
 from engine.image_utils import mean_brightness, sharpness_score
+from engine.quality import FrameStatus, live_guidance, shadow_asymmetry
 
 FACE_CHECK_EVERY_N_FRAMES = 6
+EXPOSURE_STABILITY_WINDOW = 8
+EXPOSURE_STABLE_STD_THRESHOLD = 8.0
 
 
 def list_camera_indices(max_probe: int = 5) -> List[int]:
@@ -30,7 +34,7 @@ def list_camera_indices(max_probe: int = 5) -> List[int]:
 
 class CameraWorker(QThread):
     frame_ready = Signal(np.ndarray)
-    status_ready = Signal(bool, float)  # face_detected, brightness
+    status_ready = Signal(object)  # FrameStatus
     error = Signal(str)
 
     def __init__(self, camera_index: int = 0, width: int = 1280, height: int = 720, parent=None):
@@ -43,6 +47,7 @@ class CameraWorker(QThread):
         self._burst_request = 0
         self._burst_frames: List[np.ndarray] = []
         self._burst_result: Optional[np.ndarray] = None
+        self._brightness_history: deque = deque(maxlen=EXPOSURE_STABILITY_WINDOW)
 
     def run(self) -> None:
         self._cap = cv2.VideoCapture(self.camera_index, cv2.CAP_DSHOW)
@@ -69,9 +74,22 @@ class CameraWorker(QThread):
 
             frame_count += 1
             if frame_count % FACE_CHECK_EVERY_N_FRAMES == 0:
-                found, _ = quick_face_check(frame)
+                found, box = quick_face_check(frame)
                 brightness = mean_brightness(frame)
-                self.status_ready.emit(found, brightness)
+                h, w = frame.shape[:2]
+                guidance = live_guidance(box, w, h, brightness)
+                shadow = shadow_asymmetry(frame, box) if box else 0.0
+
+                self._brightness_history.append(brightness)
+                exposure_stable = (
+                    len(self._brightness_history) >= 3
+                    and float(np.std(self._brightness_history)) <= EXPOSURE_STABLE_STD_THRESHOLD
+                )
+
+                self.status_ready.emit(FrameStatus(
+                    face_detected=found, brightness=brightness, guidance=guidance, box=box,
+                    shadow=shadow, exposure_stable=exposure_stable, img_w=w, img_h=h,
+                ))
 
             if self._burst_request > 0:
                 self._burst_frames.append(frame.copy())

@@ -9,6 +9,7 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QStackedWidget, 
 from engine.calibration import compute_calibration
 from engine.face_detection import detect_face
 from engine.image_processing import forehead_calibration_patch
+from engine.quality import QualityResult
 from engine.schemas import AnalyzeResult
 from gui.core import storage
 from gui.core.analysis_worker import AnalysisWorker
@@ -29,7 +30,7 @@ class ScanPage(QWidget):
     def __init__(
         self,
         get_settings: Callable[[], dict],
-        on_scan_complete: Callable[[AnalyzeResult, np.ndarray], None],
+        on_scan_complete: Callable[[AnalyzeResult, np.ndarray, Optional[QualityResult]], None],
         show_toast: Callable[[str], None],
         parent=None,
     ):
@@ -144,9 +145,9 @@ class ScanPage(QWidget):
         self._worker.finished_error.connect(self._on_analysis_error)
         self._worker.start()
 
-    def _on_analysis_ok(self, result: AnalyzeResult, image: np.ndarray) -> None:
+    def _on_analysis_ok(self, result: AnalyzeResult, image: np.ndarray, quality: Optional[QualityResult]) -> None:
         self.progress.finish()
-        self._on_scan_complete(result, image)
+        self._on_scan_complete(result, image, quality)
 
     def _on_analysis_error(self, result: AnalyzeResult) -> None:
         self.progress.finish()

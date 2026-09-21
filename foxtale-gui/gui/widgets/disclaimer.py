@@ -1,7 +1,8 @@
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel
 
 from engine.schemas import DISCLAIMER
-from gui.assets import apply_card_shadow
+from gui.assets import apply_card_shadow, icon_pixmap
+from gui.theme import icon_color
 
 
 class DisclaimerBanner(QFrame):
@@ -12,8 +13,8 @@ class DisclaimerBanner(QFrame):
         layout = QHBoxLayout(self)
         layout.setContentsMargins(14, 12, 14, 12)
 
-        icon = QLabel("⚠️")
-        icon.setStyleSheet("font-size: 16px;")
+        icon = QLabel()
+        icon.setPixmap(icon_pixmap("fa5s.exclamation-triangle", icon_color("warning"), size=16))
         layout.addWidget(icon)
 
         text = QLabel(f"<b>AI Disclaimer:</b> {DISCLAIMER}")

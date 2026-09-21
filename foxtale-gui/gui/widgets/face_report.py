@@ -5,8 +5,8 @@ from typing import List, Optional
 
 import cv2
 import numpy as np
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor, QImage, QPainter, QPen, QPixmap
+from PySide6.QtCore import QPointF, Qt, Signal
+from PySide6.QtGui import QColor, QImage, QPainter, QPen, QPixmap, QRadialGradient
 from PySide6.QtWidgets import QWidget
 
 from engine.schemas import RegionObservation
@@ -14,6 +14,7 @@ from gui.theme import CATEGORY_QCOLOR
 
 MARKER_RADIUS = 8
 HIT_RADIUS = 14
+HEATMAP_BLOB_RADIUS = 46
 
 
 class FaceReportView(QWidget):
@@ -26,6 +27,18 @@ class FaceReportView(QWidget):
         self._regions: List[RegionObservation] = []
         self._marker_screen_pos: List[tuple] = []  # (screen_x, screen_y, region)
         self._image_rect = None
+        self._heatmap_enabled = False
+        self._heatmap_category: Optional[str] = None
+
+    def set_heatmap_mode(self, enabled: bool, category_filter: Optional[str] = None) -> None:
+        self._heatmap_enabled = enabled
+        self._heatmap_category = category_filter
+        self.update()
+
+    def _visible_regions(self) -> List[RegionObservation]:
+        if self._heatmap_category:
+            return [r for r in self._regions if r.category == self._heatmap_category]
+        return self._regions
 
     def set_image(self, frame_bgr: Optional[np.ndarray], regions: List[RegionObservation]) -> None:
         self._regions = regions
@@ -66,8 +79,28 @@ class FaceReportView(QWidget):
             painter.drawPixmap(x, y, scaled)
             painter.restore()
             self._image_rect = (x, y, scaled.width(), scaled.height())
+            visible = self._visible_regions()
 
-            for r in self._regions:
+            if self._heatmap_enabled:
+                painter.save()
+                painter.setClipRect(square)
+                for r in visible:
+                    sx = x + int(r.x * scaled.width())
+                    sy = y + int(r.y * scaled.height())
+                    base = QColor(CATEGORY_QCOLOR.get(r.category, "#3b8dff"))
+                    gradient = QRadialGradient(QPointF(sx, sy), HEATMAP_BLOB_RADIUS)
+                    hot = QColor(base)
+                    hot.setAlpha(160)
+                    cold = QColor(base)
+                    cold.setAlpha(0)
+                    gradient.setColorAt(0.0, hot)
+                    gradient.setColorAt(1.0, cold)
+                    painter.setPen(Qt.PenStyle.NoPen)
+                    painter.setBrush(gradient)
+                    painter.drawEllipse(QPointF(sx, sy), HEATMAP_BLOB_RADIUS, HEATMAP_BLOB_RADIUS)
+                painter.restore()
+
+            for r in visible:
                 sx = x + int(r.x * scaled.width())
                 sy = y + int(r.y * scaled.height())
                 if not square.contains(sx, sy):

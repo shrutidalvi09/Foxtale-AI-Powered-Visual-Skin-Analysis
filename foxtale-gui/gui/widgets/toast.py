@@ -13,8 +13,8 @@ class Toast(QLabel):
         self.setWindowFlags(Qt.WindowType.SubWindow)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setStyleSheet(
-            "background-color: #0b1224; color: white; border-radius: 12px; "
-            "padding: 10px 18px; font-weight: 600;"
+            "background-color: white; color: #0b1224; border: 1px solid #e7e9f0; "
+            "border-radius: 12px; padding: 10px 18px; font-weight: 600;"
         )
         apply_card_shadow(self, blur=24, y_offset=6, alpha=90)
         self.hide()

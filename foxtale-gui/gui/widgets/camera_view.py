@@ -1,19 +1,24 @@
-"""Live camera preview with a futuristic scanning-frame overlay: corner
+"""Live camera preview with a friendly scanning-frame overlay: corner
 brackets, an animated sweep line, a live brightness meter, and a face-lock
-indicator that goes green once a face is framed -- all computed locally,
-before the user even presses Capture.
+indicator that goes from brand-orange to green once a face is framed --
+all computed locally, before the user even presses Capture.
 """
 
+import time
 from typing import Optional
 
 import cv2
 import numpy as np
 from PySide6.QtCore import Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QImage, QPainter, QPen, QPixmap
-from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtGui import QColor, QFont, QImage, QPainter, QPen, QPixmap
+from PySide6.QtWidgets import (
+    QComboBox, QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget,
+)
 
-from gui.assets import apply_card_shadow
+from engine.quality import FrameStatus
+from gui.assets import apply_card_shadow, icon_pixmap
 from gui.core.camera_worker import CameraWorker, list_camera_indices
+from gui.theme import FOX, icon_color
 
 
 def _bgr_to_pixmap(frame: np.ndarray) -> QPixmap:
@@ -24,6 +29,8 @@ def _bgr_to_pixmap(frame: np.ndarray) -> QPixmap:
 
 
 class CameraCanvas(QWidget):
+    countdown_finished = Signal()
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setMinimumSize(420, 420)
@@ -31,17 +38,39 @@ class CameraCanvas(QWidget):
         self._mode = "off"  # off | live | captured
         self._face_detected = False
         self._brightness = 0.0
+        self._guidance = "Position your face inside the frame"
         self._phase = 0.0
+        self._countdown = 0
 
         self._timer = QTimer(self)
         self._timer.setInterval(35)
         self._timer.timeout.connect(self._tick)
         self._timer.start()
 
+        self._countdown_timer = QTimer(self)
+        self._countdown_timer.setInterval(1000)
+        self._countdown_timer.timeout.connect(self._countdown_tick)
+
     def _tick(self) -> None:
         if self._mode == "live":
             self._phase = (self._phase + 0.03) % 1.0
             self.update()
+
+    @property
+    def is_counting_down(self) -> bool:
+        return self._countdown > 0
+
+    def start_countdown(self, seconds: int) -> None:
+        self._countdown = seconds
+        self.update()
+        self._countdown_timer.start()
+
+    def _countdown_tick(self) -> None:
+        self._countdown -= 1
+        self.update()
+        if self._countdown <= 0:
+            self._countdown_timer.stop()
+            self.countdown_finished.emit()
 
     def set_live_frame(self, frame_bgr: np.ndarray) -> None:
         self._mode = "live"
@@ -53,9 +82,11 @@ class CameraCanvas(QWidget):
         self._pixmap = _bgr_to_pixmap(frame_bgr)
         self.update()
 
-    def set_status(self, face_detected: bool, brightness: float) -> None:
+    def set_status(self, face_detected: bool, brightness: float, guidance: str = "") -> None:
         self._face_detected = face_detected
         self._brightness = brightness
+        if guidance:
+            self._guidance = guidance
         self.update()
 
     def clear(self) -> None:
@@ -103,7 +134,7 @@ class CameraCanvas(QWidget):
         inset_h = square.height() * 0.16
         frame_rect = square.adjusted(int(inset_w), int(inset_h), -int(inset_w), -int(inset_h))
 
-        color = QColor("#22c55e") if self._face_detected else QColor("#5ea8ff")
+        color = QColor("#22c55e") if self._face_detected else QColor(FOX)
         pen = QPen(color, 4)
         painter.setPen(pen)
         painter.setBrush(Qt.BrushStyle.NoBrush)
@@ -125,7 +156,7 @@ class CameraCanvas(QWidget):
         painter.setPen(QPen(sweep_color, 2))
         painter.drawLine(frame_rect.left() + 4, sweep_y, frame_rect.right() - 4, sweep_y)
 
-        status_text = "Face detected — hold still" if self._face_detected else "Position your face inside the frame"
+        status_text = self._guidance
         pill_rect = square.adjusted(16, square.height() - 46, -16, -12)
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(QColor(11, 18, 36, 210))
@@ -143,6 +174,17 @@ class CameraCanvas(QWidget):
         painter.setBrush(meter_color)
         painter.drawRoundedRect(fill_rect, 5, 5)
 
+        if self._countdown > 0:
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QColor(11, 18, 36, 150))
+            painter.drawRoundedRect(square, 24, 24)
+            painter.setPen(QColor("white"))
+            font = QFont()
+            font.setPointSize(80)
+            font.setBold(True)
+            painter.setFont(font)
+            painter.drawText(square, Qt.AlignmentFlag.AlignCenter, str(self._countdown))
+
 
 class CameraView(QWidget):
     captured = Signal(np.ndarray)
@@ -154,11 +196,34 @@ class CameraView(QWidget):
         self.worker: Optional[CameraWorker] = None
         self._captured_frame: Optional[np.ndarray] = None
         self._burst_timer: Optional[QTimer] = None
+        self._face_steady_since: Optional[float] = None
 
         layout = QVBoxLayout(self)
         self.canvas = CameraCanvas()
         apply_card_shadow(self.canvas, blur=34, y_offset=12, alpha=45)
+        self.canvas.countdown_finished.connect(self._do_capture)
         layout.addWidget(self.canvas)
+
+        self.checklist_panel = QFrame()
+        self.checklist_panel.setObjectName("Card")
+        checklist_layout = QVBoxLayout(self.checklist_panel)
+        checklist_title = QLabel("Standardised Scan Mode")
+        checklist_title.setStyleSheet("font-weight: 700;")
+        checklist_layout.addWidget(checklist_title)
+        self._checklist_icons: dict[str, QLabel] = {}
+        checklist_row = QHBoxLayout()
+        for name in ("Face centered", "Distance consistent", "Brightness in range", "Low shadow", "Exposure stable"):
+            item = QHBoxLayout()
+            icon_lbl = QLabel()
+            item.addWidget(icon_lbl)
+            text_lbl = QLabel(name)
+            text_lbl.setStyleSheet("font-size: 11px;")
+            item.addWidget(text_lbl)
+            checklist_row.addLayout(item)
+            self._checklist_icons[name] = icon_lbl
+        checklist_layout.addLayout(checklist_row)
+        self.checklist_panel.setVisible(False)
+        layout.addWidget(self.checklist_panel)
 
         controls = QHBoxLayout()
         self.device_combo = QComboBox()
@@ -210,9 +275,10 @@ class CameraView(QWidget):
         index = self.device_combo.currentData() or 0
         width, height = self.resolution_combo.currentData() or (1280, 720)
 
+        self._face_steady_since = None
         self.worker = CameraWorker(camera_index=index, width=width, height=height)
         self.worker.frame_ready.connect(self.canvas.set_live_frame)
-        self.worker.status_ready.connect(self.canvas.set_status)
+        self.worker.status_ready.connect(self._on_status)
         self.worker.error.connect(self._on_error)
         self.worker.start()
 
@@ -223,10 +289,49 @@ class CameraView(QWidget):
         self.device_combo.setEnabled(False)
         self.resolution_combo.setEnabled(False)
 
+    def _on_status(self, status: FrameStatus) -> None:
+        self.canvas.set_status(status.face_detected, status.brightness, status.guidance)
+
+        settings = self._get_settings()
+        standardised = settings.get("standardised_mode", False)
+        self.checklist_panel.setVisible(standardised)
+        if standardised:
+            self._update_checklist(status)
+
+        if not settings.get("auto_capture", False) or not status.face_detected:
+            self._face_steady_since = None
+            return
+        if standardised and not status.all_standardised_checks_pass:
+            self._face_steady_since = None
+            return
+
+        now = time.monotonic()
+        if self._face_steady_since is None:
+            self._face_steady_since = now
+            return
+        if (
+            now - self._face_steady_since >= 1.5
+            and self.capture_btn.isVisible()
+            and self.capture_btn.isEnabled()
+            and not self.canvas.is_counting_down
+        ):
+            self._face_steady_since = None
+            self.capture()
+
+    def _update_checklist(self, status: FrameStatus) -> None:
+        for name, ok in status.checklist():
+            icon_lbl = self._checklist_icons.get(name)
+            if icon_lbl is None:
+                continue
+            icon_name = "fa5s.check-circle" if ok else "fa5s.times-circle"
+            color = icon_color("success") if ok else icon_color("warning")
+            icon_lbl.setPixmap(icon_pixmap(icon_name, color, size=13))
+
     def stop_camera(self) -> None:
         if self.worker:
             self.worker.stop()
             self.worker = None
+        self._face_steady_since = None
         self.canvas.clear()
         self.start_btn.setVisible(True)
         self.stop_btn.setVisible(False)
@@ -238,6 +343,14 @@ class CameraView(QWidget):
         if not self.worker:
             return
         self.capture_btn.setEnabled(False)
+        if self._get_settings().get("capture_countdown", True):
+            self.canvas.start_countdown(3)
+        else:
+            self._do_capture()
+
+    def _do_capture(self) -> None:
+        if not self.worker:
+            return
         self.worker.request_capture(burst_count=5)
 
         self._burst_timer = QTimer(self)

@@ -1,16 +1,17 @@
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QFrame, QGridLayout, QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
-from gui.assets import apply_card_shadow
+from gui.assets import apply_card_shadow, icon_pixmap, logo_mark_pixmap
+from gui.theme import icon_color
 from gui.widgets.disclaimer import DisclaimerBanner
 
 CARDS = [
-    ("👁", "Visual observations only", "Every result is phrased as a visible observation, not a clinical finding."),
-    ("🧮", "Explainable computer vision", "Classic image-processing heuristics (color, contrast, texture) — no opaque black-box model."),
-    ("🔒", "Privacy-first, fully local", "Nothing leaves this device. Images aren't stored unless you opt in, and nothing is uploaded."),
-    ("🛡", "Not a medical device", "Foxtale doesn't diagnose conditions or infer age, ethnicity, or health status."),
-    ("🎚", "Personal calibration", "Optional skin-tone calibration adapts thresholds to you instead of one fixed baseline."),
-    ("📈", "Trends over time", "Track how each category changes across scans, and compare any two scans directly."),
+    ("fa5s.eye", "Visual observations only", "Every result is phrased as a visible observation, not a clinical finding."),
+    ("fa5s.calculator", "Explainable computer vision", "Classic image-processing heuristics (color, contrast, texture) — no opaque black-box model."),
+    ("fa5s.lock", "Privacy-first, fully local", "Nothing leaves this device. Images aren't stored unless you opt in, and nothing is uploaded."),
+    ("fa5s.shield-alt", "Not a medical device", "Foxtale doesn't diagnose conditions or infer age, ethnicity, or health status."),
+    ("fa5s.sliders-h", "Personal calibration", "Optional skin-tone calibration adapts thresholds to you instead of one fixed baseline."),
+    ("fa5s.chart-line", "Trends over time", "Track how each category changes across scans, and compare any two scans directly."),
 ]
 
 
@@ -21,9 +22,16 @@ class AboutPage(QWidget):
         layout.setContentsMargins(36, 28, 36, 28)
         layout.setSpacing(16)
 
+        header_row = QHBoxLayout()
+        header_row.setSpacing(12)
+        mark_label = QLabel()
+        mark_label.setPixmap(logo_mark_pixmap(36))
+        header_row.addWidget(mark_label)
         heading = QLabel("About Foxtale")
         heading.setObjectName("Heading")
-        layout.addWidget(heading)
+        header_row.addWidget(heading)
+        header_row.addStretch()
+        layout.addLayout(header_row)
 
         intro = QLabel(
             "Foxtale Desktop is the native GUI edition of Foxtale — an AI-powered visual skin "
@@ -36,14 +44,15 @@ class AboutPage(QWidget):
 
         grid = QGridLayout()
         grid.setSpacing(12)
-        for i, (emoji, title, body) in enumerate(CARDS):
+        card_icon_color = icon_color("accent")
+        for i, (icon_name, title, body) in enumerate(CARDS):
             card = QFrame()
             card.setObjectName("Card")
             apply_card_shadow(card, blur=18, y_offset=4, alpha=22)
             v = QVBoxLayout(card)
-            icon = QLabel(emoji)
-            icon.setStyleSheet("font-size: 20px;")
-            v.addWidget(icon)
+            icon_label = QLabel()
+            icon_label.setPixmap(icon_pixmap(icon_name, card_icon_color, size=20))
+            v.addWidget(icon_label)
             t = QLabel(title)
             t.setStyleSheet("font-weight: 700;")
             v.addWidget(t)

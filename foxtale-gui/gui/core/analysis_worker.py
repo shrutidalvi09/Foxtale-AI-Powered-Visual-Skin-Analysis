@@ -9,12 +9,13 @@ from engine.calibration import CalibrationProfile
 from engine.face_detection import detect_face
 from engine.image_processing import normalize, split_regions
 from engine.image_utils import resize_max_dim
+from engine.quality import compute_quality
 from engine.schemas import AnalyzeResult
 from engine.skin_analysis import analyze_face
 
 
 class AnalysisWorker(QThread):
-    finished_ok = Signal(object, np.ndarray)  # AnalyzeResult, the (resized) source image
+    finished_ok = Signal(object, np.ndarray, object)  # AnalyzeResult, resized source image, QualityResult
     finished_error = Signal(object)  # AnalyzeResult with face_detected=False
 
     def __init__(
@@ -42,8 +43,10 @@ class AnalysisWorker(QThread):
         normalized = normalize(image)
         regions = split_regions(normalized, face_result.box)
         analysis, observations = analyze_face(regions, self.calibration, self.min_confidence)
+        quality = compute_quality(image, face_result.box)
 
         self.finished_ok.emit(
             AnalyzeResult(face_detected=True, analysis=analysis, regions=observations),
             image,
+            quality,
         )

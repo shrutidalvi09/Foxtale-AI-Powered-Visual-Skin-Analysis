@@ -1,23 +1,37 @@
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QFrame, QGridLayout, QLabel, QPushButton, QVBoxLayout, QWidget
+from datetime import datetime
+from typing import Callable
 
-from gui.assets import apply_card_shadow
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
+    QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget,
+)
+
+from gui.assets import apply_card_shadow, icon as make_icon, icon_pixmap, logo_full_pixmap
+from gui.core import storage
+from gui.theme import icon_color
 from gui.widgets.disclaimer import DisclaimerBanner
 
 FEATURES = [
-    ("📷", "Camera-based analysis", "Live face-lock guidance before you even capture"),
-    ("👁", "Visual skin observations", "Never a diagnosis — always plain, visible findings"),
-    ("🔒", "Private, local processing", "Nothing leaves this device, ever"),
-    ("📈", "Trend tracking over time", "Compare scans and watch your progress"),
+    ("fa5s.camera", "Camera-based analysis", "Live face-lock guidance before you even capture"),
+    ("fa5s.eye", "Visual skin observations", "Never a diagnosis — always plain, visible findings"),
+    ("fa5s.lock", "Private, local processing", "Nothing leaves this device, ever"),
+    ("fa5s.chart-line", "Trend tracking over time", "Compare scans and watch your progress"),
 ]
 
 
 class HomePage(QWidget):
-    def __init__(self, on_start_scan, parent=None):
+    def __init__(self, on_start_scan, on_view_scan, get_settings: Callable[[], dict], parent=None):
         super().__init__(parent)
+        self._on_start_scan = on_start_scan
+        self._on_view_scan = on_view_scan
+        self._get_settings = get_settings
+
         outer = QVBoxLayout(self)
         outer.setContentsMargins(40, 32, 40, 32)
         outer.setSpacing(22)
+
+        self.activity_layout = QVBoxLayout()
+        outer.addLayout(self.activity_layout)
 
         hero = QFrame()
         hero.setObjectName("HeroPanel")
@@ -26,10 +40,10 @@ class HomePage(QWidget):
         hero_layout.setContentsMargins(48, 52, 48, 52)
         hero_layout.setSpacing(14)
 
-        badge = QLabel("🦊  FOXTALE DESKTOP")
-        badge.setObjectName("Badge")
-        badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        hero_layout.addWidget(badge, alignment=Qt.AlignmentFlag.AlignCenter)
+        logo_label = QLabel()
+        logo_label.setPixmap(logo_full_pixmap(96))
+        logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        hero_layout.addWidget(logo_label)
 
         heading = QLabel("Understand Your Skin\nThrough AI Vision")
         heading.setObjectName("Heading")
@@ -58,15 +72,16 @@ class HomePage(QWidget):
 
         grid = QGridLayout()
         grid.setSpacing(14)
-        for i, (emoji, title, body) in enumerate(FEATURES):
+        feature_icon_color = icon_color("accent")
+        for i, (icon_name, title, body) in enumerate(FEATURES):
             card = QFrame()
             card.setObjectName("Card")
             apply_card_shadow(card, blur=18, y_offset=4, alpha=22)
             card_layout = QVBoxLayout(card)
-            icon = QLabel(emoji)
-            icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            icon.setStyleSheet("font-size: 24px;")
-            card_layout.addWidget(icon)
+            icon_label = QLabel()
+            icon_label.setPixmap(icon_pixmap(icon_name, feature_icon_color, size=22))
+            icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            card_layout.addWidget(icon_label)
             title_label = QLabel(title)
             title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             title_label.setWordWrap(True)
@@ -82,3 +97,81 @@ class HomePage(QWidget):
 
         outer.addWidget(DisclaimerBanner())
         outer.addStretch()
+
+        self.refresh()
+
+    def refresh(self) -> None:
+        """Rebuild the "Recent Activity" summary shown to returning users
+        who already have scan history -- first-time users just see the
+        marketing hero above."""
+        while self.activity_layout.count():
+            item = self.activity_layout.takeAt(0)
+            if item.widget():
+                item.widget().hide()
+                item.widget().deleteLater()
+
+        records = storage.list_scans()
+        if not records:
+            return
+
+        latest = records[0]
+        starred_count = sum(1 for r in records if r.starred)
+
+        reminder_days = self._get_settings().get("reminder_days", 0)
+        days_since = storage.days_since_last_scan()
+        if reminder_days and days_since is not None and days_since >= reminder_days:
+            self.activity_layout.addWidget(self._build_reminder_banner(days_since))
+
+        card = QFrame()
+        card.setObjectName("Card")
+        apply_card_shadow(card, blur=18, y_offset=4, alpha=22)
+        row = QHBoxLayout(card)
+        row.setContentsMargins(20, 16, 20, 16)
+
+        icon_label = QLabel()
+        icon_label.setPixmap(icon_pixmap("fa5s.chart-bar", icon_color("accent"), size=26))
+        row.addWidget(icon_label)
+
+        text_col = QVBoxLayout()
+        text_col.setSpacing(2)
+        when = datetime.fromisoformat(latest.timestamp).strftime("%b %d, %Y · %I:%M %p")
+        title = QLabel(f"{len(records)} scan{'s' if len(records) != 1 else ''} recorded")
+        title.setStyleSheet("font-weight: 700; font-size: 14px;")
+        text_col.addWidget(title)
+        summary_bits = [f"Last scan: {when}"]
+        if starred_count:
+            summary_bits.append(f"{starred_count} starred")
+        summary = QLabel("  ·  ".join(summary_bits))
+        summary.setObjectName("Muted")
+        text_col.addWidget(summary)
+        row.addLayout(text_col, stretch=1)
+
+        view_btn = QPushButton(" View Last Analysis")
+        view_btn.setIcon(make_icon("fa5s.chart-bar", icon_color("primary")))
+        view_btn.setObjectName("Secondary")
+        view_btn.clicked.connect(lambda: self._on_view_scan(latest.id))
+        row.addWidget(view_btn)
+
+        self.activity_layout.addWidget(card)
+
+    def _build_reminder_banner(self, days_since: int) -> QFrame:
+        banner = QFrame()
+        banner.setObjectName("Disclaimer")
+        apply_card_shadow(banner, blur=18, y_offset=4, alpha=20)
+        row = QHBoxLayout(banner)
+        row.setContentsMargins(16, 12, 16, 12)
+
+        icon_label = QLabel()
+        icon_label.setPixmap(icon_pixmap("fa5s.bell", icon_color("warning"), size=16))
+        row.addWidget(icon_label)
+
+        text = QLabel(f"It's been {days_since} days since your last scan — time for a check-in?")
+        text.setWordWrap(True)
+        row.addWidget(text, stretch=1)
+
+        scan_btn = QPushButton("Scan Now")
+        scan_btn.setObjectName("Secondary")
+        scan_btn.clicked.connect(self._on_start_scan)
+        row.addWidget(scan_btn)
+
+        return banner

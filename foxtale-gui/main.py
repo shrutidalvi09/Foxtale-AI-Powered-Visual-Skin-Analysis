@@ -16,6 +16,10 @@ def main() -> int:
     app = QApplication(sys.argv)
     app.setApplicationName("Foxtale")
     app.setWindowIcon(app_icon())
+    # Closing the window shouldn't silently end the process when "minimize to
+    # tray" is on -- MainWindow.closeEvent() decides whether to hide or quit,
+    # and explicitly calls quit() itself when it does want to exit.
+    app.setQuitOnLastWindowClosed(False)
 
     splash = QSplashScreen(splash_pixmap())
     splash.show()

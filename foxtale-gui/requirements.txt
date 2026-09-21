@@ -3,3 +3,4 @@ opencv-python-headless>=4.10.0.84,<5
 numpy>=1.26.4
 matplotlib>=3.9
 reportlab>=4.2
+qtawesome>=1.3
