@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
 
 from gui.assets import apply_card_shadow, icon as make_icon, icon_pixmap
 from gui.core import storage
+from gui.core.offline_check import run_offline_verification
 from gui.theme import icon_color
 
 
@@ -59,6 +60,23 @@ class PrivacyPage(QWidget):
             ("Analysis location", "Entirely on this device"),
         ]:
             status_layout.addLayout(self._stat_row(label, value))
+
+        verify_row = QHBoxLayout()
+        verify_btn = QPushButton(" Run Offline Verification")
+        verify_btn.setIcon(make_icon("fa5s.satellite-dish", icon_color("primary")))
+        verify_btn.setObjectName("Secondary")
+        verify_btn.clicked.connect(self._run_offline_verification)
+        verify_row.addWidget(verify_btn)
+        verify_row.addStretch()
+        status_layout.addLayout(verify_row)
+
+        verify_note = QLabel(
+            "Runs a real analysis pass with network access blocked at the socket layer — "
+            "a live check, not just a claim."
+        )
+        verify_note.setObjectName("Muted")
+        verify_note.setWordWrap(True)
+        status_layout.addWidget(verify_note)
         layout.addWidget(self.status_card)
 
         actions_card, actions_layout = self._card("Data Actions")
@@ -133,6 +151,13 @@ class PrivacyPage(QWidget):
         ]
         for label, value in rows:
             self.stats_rows_layout.addLayout(self._stat_row(label, value))
+
+    def _run_offline_verification(self) -> None:
+        ok, message = run_offline_verification()
+        if ok:
+            QMessageBox.information(self, "Offline verification passed", message)
+        else:
+            QMessageBox.warning(self, "Offline verification failed", message)
 
     def _export_everything(self) -> None:
         path, _ = QFileDialog.getSaveFileName(self, "Export Everything", "foxtale-backup.zip", "Zip files (*.zip)")

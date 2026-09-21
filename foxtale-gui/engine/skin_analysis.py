@@ -181,3 +181,14 @@ def analyze_face(
             ))
 
     return analysis, observations
+
+
+def run_engine_self_test(patch: np.ndarray) -> None:
+    """Exercises every scoring heuristic on a single image patch -- used by
+    the Privacy Dashboard's offline-verification check, which runs this
+    with network access blocked to prove the analysis pipeline never
+    attempts to phone home."""
+    _spot_score(patch)
+    _redness_score(patch, None)
+    _texture_score(patch)
+    _dryness_score(patch, None)

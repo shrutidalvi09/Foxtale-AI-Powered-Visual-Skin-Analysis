@@ -40,6 +40,70 @@ def save_annotated_image(image_bgr: np.ndarray, regions: List[RegionObservation]
     cv2.imwrite(dest_path, annotated)
 
 
+def _hex_to_bgr(hex_color: str) -> tuple:
+    hex_color = hex_color.lstrip("#")
+    r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
+    return (b, g, r)
+
+
+def build_summary_card_image(dest_path: str, record: "ScanRecord") -> None:
+    """A compact, shareable summary card -- levels only, no photo -- for
+    users who want to share progress without exposing their face. Distinct
+    from `save_annotated_image`, which draws markers on the actual photo."""
+    from gui.theme import level_pill_colors
+
+    width, height = 900, 1120
+    card = np.full((height, width, 3), 255, dtype=np.uint8)
+    margin = 60
+
+    cv2.putText(card, "foxtale", (margin, 95), cv2.FONT_HERSHEY_DUPLEX, 1.6, _hex_to_bgr("#e54a00"), 3, cv2.LINE_AA)
+    cv2.putText(
+        card, "AI-Powered Visual Skin Analysis", (margin, 132),
+        cv2.FONT_HERSHEY_SIMPLEX, 0.55, (110, 100, 90), 1, cv2.LINE_AA,
+    )
+
+    when = datetime.fromisoformat(record.timestamp).strftime("%B %d, %Y")
+    cv2.putText(card, when, (margin, 185), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (70, 60, 50), 2, cv2.LINE_AA)
+
+    rows = [
+        ("Acne-like Spots", record.analysis.acne_like_spots),
+        ("Visible Redness", record.analysis.redness),
+        ("Skin Texture", record.analysis.texture),
+        ("Dryness Indicators", record.analysis.dryness_indicators),
+    ]
+    y = 260
+    row_h = 190
+    for label, cat in rows:
+        cv2.putText(card, label, (margin, y), cv2.FONT_HERSHEY_DUPLEX, 0.8, (25, 20, 18), 2, cv2.LINE_AA)
+
+        bg_hex, text_hex = level_pill_colors(cat.level, theme="light")
+        pill_w, pill_h = 260, 64
+        px0, py0 = margin, y + 22
+        cv2.rectangle(card, (px0, py0), (px0 + pill_w, py0 + pill_h), _hex_to_bgr(bg_hex), -1, lineType=cv2.LINE_AA)
+        cv2.putText(
+            card, cat.level.title(), (px0 + 24, py0 + 43),
+            cv2.FONT_HERSHEY_DUPLEX, 0.8, _hex_to_bgr(text_hex), 2, cv2.LINE_AA,
+        )
+
+        conf_text = f"{int(cat.confidence * 100)}% confidence"
+        cv2.putText(
+            card, conf_text, (px0 + pill_w + 28, py0 + 43),
+            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (120, 110, 100), 1, cv2.LINE_AA,
+        )
+        y += row_h
+
+    disclaimer_lines = [
+        "This is a visible-feature observation, not a medical diagnosis.",
+        "Generated locally with Foxtale Desktop -- your data never leaves this device.",
+    ]
+    dy = height - 84
+    for line in disclaimer_lines:
+        cv2.putText(card, line, (margin, dy), cv2.FONT_HERSHEY_SIMPLEX, 0.48, (140, 130, 120), 1, cv2.LINE_AA)
+        dy += 26
+
+    cv2.imwrite(dest_path, card)
+
+
 def _draw_wrapped(c: canvas.Canvas, text: str, x: float, y: float, max_width: float, font="Helvetica", size=9) -> float:
     c.setFont(font, size)
     words = text.split()

@@ -1,17 +1,20 @@
-from typing import Optional
+from typing import List, Optional
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QFrame, QLabel, QVBoxLayout
+from PySide6.QtWidgets import QFrame, QLabel, QPushButton, QVBoxLayout
 
-from engine.schemas import LEVEL_SCORE, CategoryResult
+from engine.schemas import LEVEL_SCORE, CategoryResult, RegionObservation
 from gui.assets import apply_card_shadow
+from gui.core.explainability import LEVEL_THRESHOLDS, METHODOLOGY, flagged_regions_summary
 from gui.theme import icon_color, level_pill_colors
 
 
 class AnalysisCard(QFrame):
     def __init__(
         self, title: str, result: CategoryResult, detail: str,
-        baseline_level: Optional[str] = None, parent=None,
+        baseline_level: Optional[str] = None,
+        category_key: Optional[str] = None, regions: Optional[List[RegionObservation]] = None,
+        parent=None,
     ):
         super().__init__(parent)
         self.setObjectName("Card")
@@ -54,3 +57,27 @@ class AnalysisCard(QFrame):
             baseline_label = QLabel(text)
             baseline_label.setStyleSheet(f"color: {icon_color(kind)}; font-weight: 700; font-size: 11px;")
             layout.addWidget(baseline_label)
+
+        if category_key is not None and category_key in METHODOLOGY:
+            why_btn = QPushButton("Why this result?")
+            why_btn.setObjectName("Secondary")
+            why_btn.setCheckable(True)
+            why_btn.setStyleSheet("font-size: 10.5px; padding: 3px 8px;")
+            layout.addWidget(why_btn, alignment=Qt.AlignmentFlag.AlignLeft)
+
+            why_body = QLabel(
+                f"{METHODOLOGY[category_key]}\n\n"
+                f"Levels: {LEVEL_THRESHOLDS}\n\n"
+                f"{flagged_regions_summary(category_key, regions or [])}"
+            )
+            why_body.setObjectName("Muted")
+            why_body.setWordWrap(True)
+            why_body.setStyleSheet("font-size: 10.5px;")
+            why_body.setVisible(False)
+            layout.addWidget(why_body)
+
+            def _toggle_why(checked: bool, body=why_body, btn=why_btn) -> None:
+                body.setVisible(checked)
+                btn.setText("Hide details" if checked else "Why this result?")
+
+            why_btn.toggled.connect(_toggle_why)

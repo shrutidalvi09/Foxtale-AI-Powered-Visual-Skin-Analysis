@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
 
 from gui.assets import apply_card_shadow, icon as make_icon, icon_pixmap, logo_full_pixmap
 from gui.core import storage
+from gui.core.insights import compute_badges
 from gui.theme import icon_color
 from gui.widgets.disclaimer import DisclaimerBanner
 
@@ -153,6 +154,46 @@ class HomePage(QWidget):
         row.addWidget(view_btn)
 
         self.activity_layout.addWidget(card)
+
+        badges = compute_badges(records)
+        earned = [b for b in badges if b.earned]
+        if earned:
+            self.activity_layout.addWidget(self._build_badges_card(earned, badges))
+
+    def _build_badges_card(self, earned: list, all_badges: list) -> QFrame:
+        card = QFrame()
+        card.setObjectName("Card")
+        apply_card_shadow(card, blur=18, y_offset=4, alpha=22)
+        v = QVBoxLayout(card)
+
+        title = QLabel("Achievements")
+        title.setStyleSheet("font-weight: 700; font-size: 14px;")
+        v.addWidget(title)
+
+        grid = QGridLayout()
+        grid.setSpacing(10)
+        columns = 5
+        for i, badge in enumerate(earned):
+            chip = QFrame()
+            chip.setObjectName("Card")
+            chip_row = QHBoxLayout(chip)
+            chip_row.setContentsMargins(10, 6, 10, 6)
+            icon_label = QLabel()
+            icon_label.setPixmap(icon_pixmap(badge.icon, icon_color("accent"), size=13))
+            chip_row.addWidget(icon_label)
+            text = QLabel(badge.label)
+            text.setStyleSheet("font-size: 11px; font-weight: 700;")
+            chip_row.addWidget(text)
+            grid.addWidget(chip, i // columns, i % columns)
+        v.addLayout(grid)
+
+        next_badge = next((b for b in all_badges if not b.earned), None)
+        if next_badge:
+            next_label = QLabel(f"Next up: {next_badge.label}")
+            next_label.setObjectName("Muted")
+            v.addWidget(next_label)
+
+        return card
 
     def _build_reminder_banner(self, days_since: int) -> QFrame:
         banner = QFrame()

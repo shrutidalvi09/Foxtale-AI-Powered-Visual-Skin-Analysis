@@ -9,10 +9,14 @@ import sys
 from PySide6.QtWidgets import QApplication, QSplashScreen
 
 from gui.assets import app_icon, splash_pixmap
+from gui.core.error_handling import install_excepthook, setup_logging
 from gui.main_window import MainWindow
 
 
 def main() -> int:
+    setup_logging()
+    install_excepthook()
+
     app = QApplication(sys.argv)
     app.setApplicationName("Foxtale")
     app.setWindowIcon(app_icon())

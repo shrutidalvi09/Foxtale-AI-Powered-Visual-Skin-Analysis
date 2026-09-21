@@ -2,8 +2,8 @@ from typing import Optional
 
 import cv2
 import numpy as np
-from PySide6.QtCore import QEvent, QSize, Qt, QTimer
-from PySide6.QtGui import QKeySequence, QShortcut
+from PySide6.QtCore import QEvent, QRect, QSize, Qt, QTimer, QUrl
+from PySide6.QtGui import QDesktopServices, QKeySequence
 from PySide6.QtWidgets import (
     QApplication, QFrame, QHBoxLayout, QLabel, QMainWindow, QMenu, QPushButton,
     QStackedWidget, QSystemTrayIcon, QVBoxLayout, QWidget,
@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
 from engine.schemas import AnalyzeResult
 from gui.assets import app_icon, brand_pixmap, icon as make_icon
 from gui.core import app_lock, storage
+from gui.core.error_handling import LOG_DIR
 from gui.pages.about_page import AboutPage
 from gui.pages.compare_page import ComparePage
 from gui.pages.history_page import HistoryPage
@@ -21,8 +22,10 @@ from gui.pages.results_page import ResultsPage
 from gui.pages.scan_page import ScanPage
 from gui.pages.settings_page import SettingsPage
 from gui.theme import icon_color, set_current_theme, stylesheet_for
+from gui.widgets.info_dialogs import AboutDialog, ShortcutsDialog
 from gui.widgets.lock_screen import LockScreen
 from gui.widgets.toast import Toast
+from gui.widgets.welcome_dialog import WelcomeDialog
 
 NAV_ITEMS = [
     ("home", "Home", "fa5s.home"),
@@ -46,6 +49,7 @@ class MainWindow(QMainWindow):
         # Bake theme-correct icon colors before any icon-bearing widget is
         # constructed below (icons are flat-color bitmaps, set once).
         set_current_theme(self._settings.get("theme", "light"))
+        self._restore_window_geometry()
 
         central = QWidget()
         self.setCentralWidget(central)
@@ -157,11 +161,14 @@ class MainWindow(QMainWindow):
         self._inactivity_timer.timeout.connect(self._on_inactivity_timeout)
         QApplication.instance().installEventFilter(self)
 
-        self._register_shortcuts()
+        self._build_menu_bar()
         self._tray_hint_shown = False
         self._build_tray_icon()
         self.navigate("home")
         self.apply_theme(self._settings.get("theme", "light"))
+
+        if not self._settings.get("onboarding_complete", False):
+            self._show_welcome_dialog()
 
         if (
             self._settings.get("app_lock_enabled", False)
@@ -171,6 +178,34 @@ class MainWindow(QMainWindow):
             self._lock()
         else:
             self._reset_inactivity_timer()
+
+    def _restore_window_geometry(self) -> None:
+        geometry = self._settings.get("window_geometry")
+        if not geometry:
+            return
+        screen = QApplication.primaryScreen()
+        screen_rect = screen.availableGeometry() if screen else None
+
+        w = max(900, min(int(geometry.get("w", 1180)), screen_rect.width() if screen_rect else 3840))
+        h = max(600, min(int(geometry.get("h", 780)), screen_rect.height() if screen_rect else 2160))
+        x, y = int(geometry.get("x", 0)), int(geometry.get("y", 0))
+        target = QRect(x, y, w, h)
+
+        if screen_rect and screen_rect.intersects(target):
+            self.setGeometry(target)
+        else:
+            self.resize(w, h)
+
+        if geometry.get("maximized"):
+            self.showMaximized()
+
+    def _save_window_geometry(self) -> None:
+        geo = self.geometry()
+        self._settings["window_geometry"] = {
+            "x": geo.x(), "y": geo.y(), "w": geo.width(), "h": geo.height(),
+            "maximized": self.isMaximized(),
+        }
+        storage.save_settings(self._settings)
 
     def _lock(self) -> None:
         self.lock_screen.setGeometry(self.centralWidget().rect())
@@ -234,15 +269,64 @@ class MainWindow(QMainWindow):
         self.navigate("scan")
 
     def _quit_app(self) -> None:
+        self._save_window_geometry()
         self.scan_page.shutdown()
         self.tray_icon.hide()
         QApplication.instance().quit()
 
-    def _register_shortcuts(self) -> None:
-        QShortcut(QKeySequence("Ctrl+N"), self, activated=lambda: self.navigate("scan"))
-        QShortcut(QKeySequence("Ctrl+,"), self, activated=lambda: self.navigate("settings"))
-        QShortcut(QKeySequence("Ctrl+H"), self, activated=lambda: self.navigate("history"))
-        QShortcut(QKeySequence(Qt.Key.Key_Escape), self, activated=lambda: self.navigate("home"))
+    def _build_menu_bar(self) -> None:
+        menu_bar = self.menuBar()
+
+        file_menu = menu_bar.addMenu("&File")
+        new_scan_action = file_menu.addAction("New Scan")
+        new_scan_action.setShortcut(QKeySequence("Ctrl+N"))
+        new_scan_action.triggered.connect(lambda: self.navigate("scan"))
+        settings_action = file_menu.addAction("Settings")
+        settings_action.setShortcut(QKeySequence("Ctrl+,"))
+        settings_action.triggered.connect(lambda: self.navigate("settings"))
+        file_menu.addSeparator()
+        exit_action = file_menu.addAction("Exit")
+        exit_action.setShortcut(QKeySequence("Ctrl+Q"))
+        exit_action.triggered.connect(self.close)
+
+        view_menu = menu_bar.addMenu("&View")
+        home_action = view_menu.addAction("Home")
+        home_action.setShortcut(QKeySequence(Qt.Key.Key_Escape))
+        home_action.triggered.connect(lambda: self.navigate("home"))
+        for key, label, _icon in NAV_ITEMS:
+            if key in ("home", "settings"):
+                continue
+            action = view_menu.addAction(label)
+            if key == "history":
+                action.setShortcut(QKeySequence("Ctrl+H"))
+            action.triggered.connect(lambda _, k=key: self.navigate(k))
+
+        help_menu = menu_bar.addMenu("&Help")
+        shortcuts_action = help_menu.addAction("Keyboard Shortcuts")
+        shortcuts_action.triggered.connect(self._show_shortcuts_dialog)
+        log_action = help_menu.addAction("Open Log Folder")
+        log_action.triggered.connect(self._open_log_folder)
+        help_menu.addSeparator()
+        about_action = help_menu.addAction("About Foxtale")
+        about_action.triggered.connect(self._show_about_dialog)
+
+    def _show_welcome_dialog(self) -> None:
+        dialog = WelcomeDialog(current_theme=self._settings.get("theme", "light"), parent=self)
+        dialog.exec()
+        self._settings["onboarding_complete"] = True
+        self._settings["theme"] = dialog.selected_theme
+        storage.save_settings(self._settings)
+        self.apply_theme(dialog.selected_theme)
+
+    def _show_about_dialog(self) -> None:
+        AboutDialog(parent=self).exec()
+
+    def _show_shortcuts_dialog(self) -> None:
+        ShortcutsDialog(parent=self).exec()
+
+    def _open_log_folder(self) -> None:
+        LOG_DIR.mkdir(parents=True, exist_ok=True)
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(LOG_DIR)))
 
     def navigate(self, key: str) -> None:
         if key == "home":
@@ -324,6 +408,7 @@ class MainWindow(QMainWindow):
                 self._tray_hint_shown = True
             return
 
+        self._save_window_geometry()
         self.scan_page.shutdown()
         self.tray_icon.hide()
         super().closeEvent(event)

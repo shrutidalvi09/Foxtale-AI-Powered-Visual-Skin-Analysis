@@ -8,8 +8,15 @@ from PySide6.QtWidgets import (
 
 from gui.assets import apply_card_shadow, icon_pixmap
 from gui.assets import icon as make_icon
-from gui.core import app_lock, storage
+from gui.core import app_lock, perf, storage
+from gui.core.camera_worker import list_camera_indices
 from gui.theme import icon_color
+
+CAMERA_RESOLUTIONS = [
+    ("HD 1280x720", (1280, 720)),
+    ("VGA 640x480", (640, 480)),
+    ("Full HD 1920x1080", (1920, 1080)),
+]
 
 
 class SettingsPage(QWidget):
@@ -38,8 +45,10 @@ class SettingsPage(QWidget):
         layout.addWidget(self._app_lock_card())
         layout.addWidget(self._appearance_card())
         layout.addWidget(self._scanning_card())
+        layout.addWidget(self._camera_card())
         layout.addWidget(self._analysis_card())
         layout.addWidget(self._calibration_card())
+        layout.addWidget(self._performance_card())
         layout.addWidget(self._backup_card())
         layout.addStretch()
 
@@ -194,6 +203,102 @@ class SettingsPage(QWidget):
 
         return frame
 
+    def _camera_card(self) -> QFrame:
+        frame, v = self._card("Camera")
+
+        note = QLabel(
+            "Choose the default capture device and resolution, or save named profiles "
+            "to switch quickly between setups (e.g. different desks or lighting)."
+        )
+        note.setObjectName("Muted")
+        note.setWordWrap(True)
+        v.addWidget(note)
+
+        row = QHBoxLayout()
+        row.addWidget(QLabel("Device:"))
+        self.camera_device_combo = QComboBox()
+        for idx in list_camera_indices():
+            self.camera_device_combo.addItem(f"Camera {idx}", idx)
+        self.camera_device_combo.currentIndexChanged.connect(self._on_change)
+        row.addWidget(self.camera_device_combo)
+
+        row.addWidget(QLabel("Resolution:"))
+        self.camera_resolution_combo = QComboBox()
+        for label, res in CAMERA_RESOLUTIONS:
+            self.camera_resolution_combo.addItem(label, res)
+        self.camera_resolution_combo.currentIndexChanged.connect(self._on_change)
+        row.addWidget(self.camera_resolution_combo)
+        row.addStretch()
+        v.addLayout(row)
+
+        save_row = QHBoxLayout()
+        save_profile_btn = QPushButton(" Save Current as Profile")
+        save_profile_btn.setIcon(make_icon("fa5s.save", icon_color("primary")))
+        save_profile_btn.setObjectName("Secondary")
+        save_profile_btn.clicked.connect(self._save_camera_profile)
+        save_row.addWidget(save_profile_btn)
+        save_row.addStretch()
+        v.addLayout(save_row)
+
+        self.profiles_layout = QVBoxLayout()
+        v.addLayout(self.profiles_layout)
+
+        return frame
+
+    def _save_camera_profile(self) -> None:
+        name, ok = QInputDialog.getText(self, "Save Camera Profile", "Profile name:")
+        name = name.strip()
+        if not ok or not name:
+            return
+        width, height = self.camera_resolution_combo.currentData() or (1280, 720)
+        profiles = [p for p in self._get_settings().get("camera_profiles", []) if p["name"] != name]
+        profiles.append({
+            "name": name,
+            "index": self.camera_device_combo.currentData() or 0,
+            "width": width,
+            "height": height,
+        })
+        self._on_settings_changed({"camera_profiles": profiles})
+        self._refresh_camera_profiles(profiles)
+        self._show_toast(f'Saved camera profile "{name}".')
+
+    def _apply_camera_profile(self, profile: dict) -> None:
+        dev_idx = self.camera_device_combo.findData(profile["index"])
+        if dev_idx >= 0:
+            self.camera_device_combo.setCurrentIndex(dev_idx)
+        res_idx = self.camera_resolution_combo.findData((profile["width"], profile["height"]))
+        if res_idx >= 0:
+            self.camera_resolution_combo.setCurrentIndex(res_idx)
+        self._show_toast(f'Using camera profile "{profile["name"]}".')
+
+    def _delete_camera_profile(self, name: str) -> None:
+        profiles = [p for p in self._get_settings().get("camera_profiles", []) if p["name"] != name]
+        self._on_settings_changed({"camera_profiles": profiles})
+        self._refresh_camera_profiles(profiles)
+
+    def _refresh_camera_profiles(self, profiles: list) -> None:
+        while self.profiles_layout.count():
+            item = self.profiles_layout.takeAt(0)
+            if item.widget():
+                item.widget().hide()
+                item.widget().deleteLater()
+
+        for profile in profiles:
+            row = QWidget()
+            h = QHBoxLayout(row)
+            h.setContentsMargins(0, 4, 0, 4)
+            label = QLabel(f'{profile["name"]} — Camera {profile["index"]}, {profile["width"]}x{profile["height"]}')
+            h.addWidget(label, stretch=1)
+            use_btn = QPushButton("Use")
+            use_btn.setObjectName("Secondary")
+            use_btn.clicked.connect(lambda _, p=profile: self._apply_camera_profile(p))
+            h.addWidget(use_btn)
+            del_btn = QPushButton("Delete")
+            del_btn.setObjectName("Secondary")
+            del_btn.clicked.connect(lambda _, n=profile["name"]: self._delete_camera_profile(n))
+            h.addWidget(del_btn)
+            self.profiles_layout.addWidget(row)
+
     def _analysis_card(self) -> QFrame:
         frame, v = self._card("Analysis")
         row = QHBoxLayout()
@@ -224,6 +329,59 @@ class SettingsPage(QWidget):
         reset_btn.clicked.connect(self._clear_calibration)
         v.addWidget(reset_btn, alignment=Qt.AlignmentFlag.AlignLeft)
         return frame
+
+    def _performance_card(self) -> QFrame:
+        frame, v = self._card("Performance")
+        note = QLabel(
+            "Timing for the on-device analysis pipeline (face detection + skin analysis) — "
+            "proof it stays fast without ever leaving this machine."
+        )
+        note.setObjectName("Muted")
+        note.setWordWrap(True)
+        v.addWidget(note)
+        self.perf_rows_layout = QVBoxLayout()
+        v.addLayout(self.perf_rows_layout)
+        return frame
+
+    def _refresh_performance(self) -> None:
+        while self.perf_rows_layout.count():
+            item = self.perf_rows_layout.takeAt(0)
+            row = item.layout()
+            if row is not None:
+                while row.count():
+                    sub_item = row.takeAt(0)
+                    if sub_item.widget():
+                        sub_item.widget().hide()
+                        sub_item.widget().deleteLater()
+                row.deleteLater()
+            elif item.widget():
+                item.widget().hide()
+                item.widget().deleteLater()
+
+        stats = perf.get_stats()
+        if not stats:
+            empty = QLabel("Run a scan to see timing stats here.")
+            empty.setObjectName("Muted")
+            self.perf_rows_layout.addWidget(empty)
+            return
+
+        rows = [
+            ("Last scan", f"{stats['last']:.0f} ms"),
+            ("Average", f"{stats['avg']:.0f} ms"),
+            ("Fastest", f"{stats['min']:.0f} ms"),
+            ("Slowest", f"{stats['max']:.0f} ms"),
+            ("Scans measured", str(stats["count"])),
+        ]
+        for label, value in rows:
+            row = QHBoxLayout()
+            name = QLabel(label)
+            name.setObjectName("Muted")
+            row.addWidget(name)
+            row.addStretch()
+            val = QLabel(value)
+            val.setStyleSheet("font-weight: 700;")
+            row.addWidget(val)
+            self.perf_rows_layout.addLayout(row)
 
     def _backup_card(self) -> QFrame:
         frame, v = self._card("Data Backup")
@@ -284,6 +442,7 @@ class SettingsPage(QWidget):
             self.confidence_slider, self.countdown_check, self.reminder_combo, self.tray_check,
             self.auto_capture_check, self.standardised_check,
             self.app_lock_check, self.lock_on_start_check, self.lock_inactivity_combo,
+            self.camera_device_combo, self.camera_resolution_combo,
         )
         for w in widgets:
             w.blockSignals(True)
@@ -308,11 +467,21 @@ class SettingsPage(QWidget):
         inactivity_idx = self.lock_inactivity_combo.findData(settings.get("lock_after_minutes", 0))
         if inactivity_idx >= 0:
             self.lock_inactivity_combo.setCurrentIndex(inactivity_idx)
+        dev_idx = self.camera_device_combo.findData(settings.get("camera_index", 0))
+        if dev_idx >= 0:
+            self.camera_device_combo.setCurrentIndex(dev_idx)
+        res_idx = self.camera_resolution_combo.findData(
+            (settings.get("camera_width", 1280), settings.get("camera_height", 720))
+        )
+        if res_idx >= 0:
+            self.camera_resolution_combo.setCurrentIndex(res_idx)
 
         for w in widgets:
             w.blockSignals(False)
 
         self._refresh_calibration_status()
+        self._refresh_camera_profiles(settings.get("camera_profiles", []))
+        self._refresh_performance()
 
     def _refresh_calibration_status(self) -> None:
         profile = storage.load_calibration()
@@ -330,6 +499,7 @@ class SettingsPage(QWidget):
         self._on_change()
 
     def _on_change(self, *_args) -> None:
+        width, height = self.camera_resolution_combo.currentData() or (1280, 720)
         settings = {
             "save_history": self.save_history_check.isChecked(),
             "save_images": self.save_images_check.isChecked(),
@@ -343,6 +513,9 @@ class SettingsPage(QWidget):
             "app_lock_enabled": self.app_lock_check.isChecked(),
             "lock_on_start": self.lock_on_start_check.isChecked(),
             "lock_after_minutes": self.lock_inactivity_combo.currentData(),
+            "camera_index": self.camera_device_combo.currentData() or 0,
+            "camera_width": width,
+            "camera_height": height,
         }
         self._on_settings_changed(settings)
 

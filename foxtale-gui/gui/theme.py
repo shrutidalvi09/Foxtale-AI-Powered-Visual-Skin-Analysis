@@ -156,6 +156,19 @@ QCheckBox::indicator:checked {{
     background-color: {FOX};
 }}
 
+QRadioButton {{ spacing: 10px; font-weight: 600; padding: 2px 0; }}
+QRadioButton::indicator {{
+    width: 19px; height: 19px;
+    border-radius: 10px;
+    border: 2px solid #d9deeb;
+    background: white;
+}}
+QRadioButton::indicator:hover {{ border-color: {FOX}; }}
+QRadioButton::indicator:checked {{
+    border: 2px solid {FOX};
+    background-color: {FOX};
+}}
+
 QSlider::groove:horizontal {{
     height: 6px;
     background: #eef1f8;
@@ -239,6 +252,33 @@ QScrollBar::handle:horizontal {{
 QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{ width: 0px; }}
 
 QMessageBox {{ background-color: white; }}
+QDialog {{ background-color: white; }}
+
+QMenuBar {{
+    background-color: #ffffff;
+    border-bottom: 1px solid #eceff5;
+    padding: 2px 4px;
+}}
+QMenuBar::item {{
+    padding: 6px 12px;
+    border-radius: 6px;
+    background: transparent;
+    color: {NAVY};
+}}
+QMenuBar::item:selected {{ background-color: #fff3ea; color: {FOX_TEXT}; }}
+QMenu {{
+    background-color: white;
+    border: 1px solid #e7e9f0;
+    border-radius: 10px;
+    padding: 6px;
+}}
+QMenu::item {{
+    padding: 7px 24px 7px 14px;
+    border-radius: 6px;
+    color: {NAVY};
+}}
+QMenu::item:selected {{ background-color: #fff3ea; color: {FOX_TEXT}; }}
+QMenu::separator {{ height: 1px; background: #eceff5; margin: 6px 8px; }}
 """
 
 DARK_QSS = f"""
@@ -380,6 +420,19 @@ QCheckBox::indicator:checked {{
     background-color: {FOX};
 }}
 
+QRadioButton {{ spacing: 10px; font-weight: 600; padding: 2px 0; }}
+QRadioButton::indicator {{
+    width: 19px; height: 19px;
+    border-radius: 10px;
+    border: 2px solid #263457;
+    background: #131b30;
+}}
+QRadioButton::indicator:hover {{ border-color: {ACCENT}; }}
+QRadioButton::indicator:checked {{
+    border: 2px solid {FOX};
+    background-color: {FOX};
+}}
+
 QSlider::groove:horizontal {{
     height: 6px;
     background: #1a2340;
@@ -464,6 +517,33 @@ QScrollBar::handle:horizontal {{
 QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{ width: 0px; }}
 
 QMessageBox {{ background-color: #0f1526; }}
+QDialog {{ background-color: #0f1526; }}
+
+QMenuBar {{
+    background-color: #0b1020;
+    border-bottom: 1px solid #1d2740;
+    padding: 2px 4px;
+}}
+QMenuBar::item {{
+    padding: 6px 12px;
+    border-radius: 6px;
+    background: transparent;
+    color: #e7ecf7;
+}}
+QMenuBar::item:selected {{ background-color: #1a2340; color: {FOX_HOVER}; }}
+QMenu {{
+    background-color: #131b30;
+    border: 1px solid #21294a;
+    border-radius: 10px;
+    padding: 6px;
+}}
+QMenu::item {{
+    padding: 7px 24px 7px 14px;
+    border-radius: 6px;
+    color: #e7ecf7;
+}}
+QMenu::item:selected {{ background-color: #1a2340; color: {FOX_HOVER}; }}
+QMenu::separator {{ height: 1px; background: #21294a; margin: 6px 8px; }}
 """
 
 

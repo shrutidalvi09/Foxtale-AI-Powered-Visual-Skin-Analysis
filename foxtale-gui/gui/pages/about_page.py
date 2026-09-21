@@ -1,9 +1,17 @@
+import cv2
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from gui.assets import apply_card_shadow, icon_pixmap, logo_mark_pixmap
 from gui.theme import icon_color
 from gui.widgets.disclaimer import DisclaimerBanner
+
+ENGINE_INFO_ROWS = [
+    ("Face detector", "OpenCV Haar Cascade (frontalface_default)"),
+    ("Analysis engine", "Rule-based image heuristics, v1.0"),
+    ("OpenCV version", cv2.__version__),
+    ("App version", "1.0 · Desktop"),
+]
 
 CARDS = [
     ("fa5s.eye", "Visual observations only", "Every result is phrased as a visible observation, not a clinical finding."),
@@ -63,5 +71,26 @@ class AboutPage(QWidget):
             grid.addWidget(card, i // 2, i % 2)
         layout.addLayout(grid)
 
+        layout.addWidget(self._engine_card())
         layout.addWidget(DisclaimerBanner())
         layout.addStretch()
+
+    def _engine_card(self) -> QFrame:
+        frame = QFrame()
+        frame.setObjectName("Card")
+        apply_card_shadow(frame)
+        v = QVBoxLayout(frame)
+        title = QLabel("Engine & Model")
+        title.setStyleSheet("font-weight: 800; font-size: 14px;")
+        v.addWidget(title)
+        for label, value in ENGINE_INFO_ROWS:
+            row = QHBoxLayout()
+            name = QLabel(label)
+            name.setObjectName("Muted")
+            row.addWidget(name)
+            row.addStretch()
+            val = QLabel(value)
+            val.setStyleSheet("font-weight: 700;")
+            row.addWidget(val)
+            v.addLayout(row)
+        return frame

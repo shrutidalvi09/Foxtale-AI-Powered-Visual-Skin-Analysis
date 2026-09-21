@@ -3,7 +3,7 @@ trend-over-time chart, and a rule-based Insights summary. Only analysis
 summaries are stored -- images only if the user opted in."""
 
 import tempfile
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import Callable, List
 
@@ -149,6 +149,58 @@ class HistoryPage(QWidget):
         self.insights_layout.addStretch()
         self.tabs.addTab(insights_tab, "Insights")
 
+        # --- routine tab ---
+        routine_tab = QWidget()
+        routine_layout = QVBoxLayout(routine_tab)
+        routine_layout.setSpacing(12)
+
+        today_card = QFrame()
+        today_card.setObjectName("Card")
+        apply_card_shadow(today_card)
+        today_v = QVBoxLayout(today_card)
+        today_title = QLabel("Today's Routine")
+        today_title.setStyleSheet("font-weight: 700;")
+        today_v.addWidget(today_title)
+        today_note = QLabel("What did you use today? Independent of scanning — helps spot patterns over time.")
+        today_note.setObjectName("Muted")
+        today_note.setWordWrap(True)
+        today_v.addWidget(today_note)
+        self.routine_today_checks: dict[str, QCheckBox] = {}
+        today_row = QHBoxLayout()
+        for item in storage.ROUTINE_OPTIONS:
+            cb = QCheckBox(item)
+            cb.stateChanged.connect(self._on_routine_today_changed)
+            today_row.addWidget(cb)
+            self.routine_today_checks[item] = cb
+        today_row.addStretch()
+        today_v.addLayout(today_row)
+        routine_layout.addWidget(today_card)
+
+        streak_card = QFrame()
+        streak_card.setObjectName("Card")
+        apply_card_shadow(streak_card)
+        streak_v = QVBoxLayout(streak_card)
+        streak_title = QLabel("Routine Streaks")
+        streak_title.setStyleSheet("font-weight: 700;")
+        streak_v.addWidget(streak_title)
+        self.routine_streak_layout = QVBoxLayout()
+        streak_v.addLayout(self.routine_streak_layout)
+        routine_layout.addWidget(streak_card)
+
+        log_card = QFrame()
+        log_card.setObjectName("Card")
+        apply_card_shadow(log_card)
+        log_v = QVBoxLayout(log_card)
+        log_title = QLabel("Recent Log")
+        log_title.setStyleSheet("font-weight: 700;")
+        log_v.addWidget(log_title)
+        self.routine_log_layout = QVBoxLayout()
+        log_v.addLayout(self.routine_log_layout)
+        routine_layout.addWidget(log_card)
+
+        routine_layout.addStretch()
+        self.tabs.addTab(routine_tab, "Routine")
+
         self.refresh()
 
     def refresh(self) -> None:
@@ -157,6 +209,87 @@ class HistoryPage(QWidget):
         self.chart.plot(self._records)
         self._render_insights()
         self._mark_calendar_dates()
+        self._render_routine()
+
+    def _on_routine_today_changed(self, *_args) -> None:
+        today = date.today().isoformat()
+        selected = [item for item, cb in self.routine_today_checks.items() if cb.isChecked()]
+        storage.set_daily_routine(today, selected)
+        self._render_routine_streaks()
+        self._render_routine_log()
+
+    def _render_routine(self) -> None:
+        today = date.today().isoformat()
+        todays_items = set(storage.get_daily_routine(today))
+        for item, cb in self.routine_today_checks.items():
+            cb.blockSignals(True)
+            cb.setChecked(item in todays_items)
+            cb.blockSignals(False)
+        self._render_routine_streaks()
+        self._render_routine_log()
+
+    def _render_routine_streaks(self) -> None:
+        while self.routine_streak_layout.count():
+            item = self.routine_streak_layout.takeAt(0)
+            row = item.layout()
+            if row is not None:
+                while row.count():
+                    sub_item = row.takeAt(0)
+                    if sub_item.widget():
+                        sub_item.widget().hide()
+                        sub_item.widget().deleteLater()
+                row.deleteLater()
+            elif item.widget():
+                item.widget().hide()
+                item.widget().deleteLater()
+
+        for name in storage.ROUTINE_OPTIONS:
+            streak = storage.routine_streak(name)
+            row = QHBoxLayout()
+            icon_label = QLabel()
+            icon_label.setPixmap(icon_pixmap("fa5s.fire", icon_color("accent"), size=13))
+            row.addWidget(icon_label)
+            label = QLabel(name)
+            row.addWidget(label, stretch=1)
+            val = QLabel(f"{streak}-day streak" if streak else "No current streak")
+            if streak:
+                val.setStyleSheet("font-weight: 700;")
+            else:
+                val.setObjectName("Muted")
+            row.addWidget(val)
+            self.routine_streak_layout.addLayout(row)
+
+    def _render_routine_log(self) -> None:
+        while self.routine_log_layout.count():
+            item = self.routine_log_layout.takeAt(0)
+            row = item.layout()
+            if row is not None:
+                while row.count():
+                    sub_item = row.takeAt(0)
+                    if sub_item.widget():
+                        sub_item.widget().hide()
+                        sub_item.widget().deleteLater()
+                row.deleteLater()
+            elif item.widget():
+                item.widget().hide()
+                item.widget().deleteLater()
+
+        logs = storage.list_routine_logs(14)
+        if not logs:
+            empty = QLabel("No routine entries yet.")
+            empty.setObjectName("Muted")
+            self.routine_log_layout.addWidget(empty)
+            return
+
+        for date_str, items in logs:
+            row = QHBoxLayout()
+            day_label = QLabel(datetime.fromisoformat(date_str).strftime("%b %d"))
+            day_label.setObjectName("Muted")
+            day_label.setFixedWidth(60)
+            row.addWidget(day_label)
+            text = QLabel(", ".join(items) if items else "—")
+            row.addWidget(text, stretch=1)
+            self.routine_log_layout.addLayout(row)
 
     def _mark_calendar_dates(self) -> None:
         # setDateTextFormat() has no bulk-clear call, so explicitly reset

@@ -1,5 +1,6 @@
 """QThread that runs face detection + region split + skin analysis off the UI thread."""
 
+import time
 from typing import Optional
 
 import numpy as np
@@ -12,6 +13,7 @@ from engine.image_utils import resize_max_dim
 from engine.quality import compute_quality
 from engine.schemas import AnalyzeResult
 from engine.skin_analysis import analyze_face
+from gui.core import perf
 
 
 class AnalysisWorker(QThread):
@@ -31,6 +33,7 @@ class AnalysisWorker(QThread):
         self.min_confidence = min_confidence
 
     def run(self) -> None:
+        started = time.perf_counter()
         image = resize_max_dim(self.image_bgr, max_dim=900)
 
         face_result = detect_face(image)
@@ -44,6 +47,8 @@ class AnalysisWorker(QThread):
         regions = split_regions(normalized, face_result.box)
         analysis, observations = analyze_face(regions, self.calibration, self.min_confidence)
         quality = compute_quality(image, face_result.box)
+
+        perf.record_analysis_ms((time.perf_counter() - started) * 1000)
 
         self.finished_ok.emit(
             AnalyzeResult(face_detected=True, analysis=analysis, regions=observations),

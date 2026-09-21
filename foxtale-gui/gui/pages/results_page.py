@@ -18,7 +18,7 @@ from gui.assets import icon as make_icon
 from gui.core import storage
 from gui.core.insights import compute_baseline
 from gui.core.recommendations import build_recommendations
-from gui.core.report_export import build_pdf_report, save_annotated_image
+from gui.core.report_export import build_pdf_report, build_summary_card_image, save_annotated_image
 from gui.core.storage import ScanRecord
 from gui.theme import CATEGORY_QCOLOR, icon_color
 from gui.widgets.analysis_card import AnalysisCard
@@ -238,6 +238,11 @@ class ResultsPage(QWidget):
         export_png_btn.setIcon(make_icon("fa5s.file-export", icon_color("primary")))
         export_png_btn.setObjectName("Secondary")
         export_png_btn.clicked.connect(self._export_png)
+        export_share_btn = QPushButton(" Export Share Card")
+        export_share_btn.setIcon(make_icon("fa5s.share-square", icon_color("primary")))
+        export_share_btn.setObjectName("Secondary")
+        export_share_btn.setToolTip("A summary card with levels only — no photo — for sharing.")
+        export_share_btn.clicked.connect(self._export_share_card)
         delete_btn = QPushButton(" Delete Scan")
         delete_btn.setIcon(make_icon("fa5s.trash-alt", icon_color("primary")))
         delete_btn.setObjectName("Secondary")
@@ -247,7 +252,7 @@ class ResultsPage(QWidget):
         new_scan_btn.setObjectName("Primary")
         new_scan_btn.clicked.connect(self._on_new_scan)
 
-        for b in (export_pdf_btn, export_png_btn, delete_btn, new_scan_btn):
+        for b in (export_pdf_btn, export_png_btn, export_share_btn, delete_btn, new_scan_btn):
             actions.addWidget(b)
         self.layout_.addLayout(actions)
 
@@ -299,18 +304,22 @@ class ResultsPage(QWidget):
         self.cards_row.addWidget(AnalysisCard(
             "Acne-like Spots", analysis.acne_like_spots, f"{acne_count} area(s) flagged",
             baseline_level=baseline.get("Acne-like spots"),
+            category_key="Acne-like spots", regions=record.regions,
         ))
         self.cards_row.addWidget(AnalysisCard(
             "Visible Redness", analysis.redness, f"{redness_count} area(s) found",
             baseline_level=baseline.get("Redness"),
+            category_key="Redness", regions=record.regions,
         ))
         self.cards_row.addWidget(AnalysisCard(
             "Skin Texture", analysis.texture, "Facial areas assessed",
             baseline_level=baseline.get("Texture"),
+            category_key="Texture", regions=record.regions,
         ))
         self.cards_row.addWidget(AnalysisCard(
             "Dryness Indicators", analysis.dryness_indicators, f"{dry_count} area(s) found",
             baseline_level=baseline.get("Dryness indicators"),
+            category_key="Dryness indicators", regions=record.regions,
         ))
         if record.quality:
             self.cards_row.addWidget(QualityCard(record.quality))
@@ -395,6 +404,15 @@ class ResultsPage(QWidget):
             return
         save_annotated_image(self._image, self._record.regions, path)
         self._show_toast("Annotated image exported.")
+
+    def _export_share_card(self) -> None:
+        if not self._record:
+            return
+        path, _ = QFileDialog.getSaveFileName(self, "Export Share Card", "foxtale-summary.png", "PNG files (*.png)")
+        if not path:
+            return
+        build_summary_card_image(path, self._record)
+        self._show_toast("Share card exported — no photo included.")
 
     def _delete(self) -> None:
         if self._record:

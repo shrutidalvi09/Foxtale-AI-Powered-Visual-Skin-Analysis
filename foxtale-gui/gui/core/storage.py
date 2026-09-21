@@ -43,6 +43,9 @@ DEFAULT_SETTINGS = {
     "app_lock_enabled": False,
     "lock_on_start": True,
     "lock_after_minutes": 0,  # 0 = never auto-lock from inactivity
+    "camera_profiles": [],  # [{"name", "index", "width", "height"}, ...]
+    "window_geometry": None,  # {"x", "y", "w", "h", "maximized"} or None
+    "onboarding_complete": False,
 }
 
 ROUTINE_OPTIONS = ["Cleanser", "Moisturiser", "Sunscreen", "Other"]
@@ -93,6 +96,13 @@ def _connect() -> sqlite3.Connection:
         conn.execute("ALTER TABLE scans ADD COLUMN quality_json TEXT")
     if "journal_json" not in existing_cols:
         conn.execute("ALTER TABLE scans ADD COLUMN journal_json TEXT")
+
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS routine_logs (
+            date TEXT PRIMARY KEY,
+            routine_json TEXT NOT NULL
+        )"""
+    )
     return conn
 
 
@@ -402,12 +412,67 @@ def get_data_stats() -> dict:
 
 
 def delete_all_personal_data() -> None:
-    """Scan history, saved images, and calibration -- but deliberately NOT
-    settings.json, so a user's app preferences (theme, reminders, etc.)
-    survive a personal-data wipe. Used by the Privacy Dashboard's
-    "Delete All Data" action."""
+    """Scan history, saved images, calibration, and routine logs -- but
+    deliberately NOT settings.json, so a user's app preferences (theme,
+    reminders, etc.) survive a personal-data wipe. Used by the Privacy
+    Dashboard's "Delete All Data" action."""
     delete_all_scans()
     clear_calibration()
+    conn = _connect()
+    with conn:
+        conn.execute("DELETE FROM routine_logs")
+    conn.close()
+
+
+def set_daily_routine(date_str: str, routine: List[str]) -> None:
+    """`date_str` is a plain "YYYY-MM-DD" day, independent of any scan --
+    this tracks what a user did that day (cleanser, sunscreen, ...) whether
+    or not they also scanned."""
+    conn = _connect()
+    with conn:
+        conn.execute(
+            "INSERT INTO routine_logs (date, routine_json) VALUES (?, ?) "
+            "ON CONFLICT(date) DO UPDATE SET routine_json = excluded.routine_json",
+            (date_str, json.dumps(routine)),
+        )
+    conn.close()
+
+
+def get_daily_routine(date_str: str) -> List[str]:
+    conn = _connect()
+    row = conn.execute("SELECT routine_json FROM routine_logs WHERE date = ?", (date_str,)).fetchone()
+    conn.close()
+    return json.loads(row[0]) if row else []
+
+
+def list_routine_logs(limit: int = 30) -> List[tuple]:
+    """[(date_str, [item, ...]), ...] newest first."""
+    conn = _connect()
+    rows = conn.execute(
+        "SELECT date, routine_json FROM routine_logs ORDER BY date DESC LIMIT ?", (limit,)
+    ).fetchall()
+    conn.close()
+    return [(d, json.loads(j)) for d, j in rows]
+
+
+def routine_streak(item: str) -> int:
+    """Consecutive days (counting back from today, or from yesterday if
+    today isn't logged yet) that `item` appears in the daily routine log."""
+    from datetime import date, timedelta
+
+    conn = _connect()
+    rows = conn.execute("SELECT date, routine_json FROM routine_logs").fetchall()
+    conn.close()
+    logged = {d: set(json.loads(j)) for d, j in rows}
+
+    day = date.today()
+    if item not in logged.get(day.isoformat(), set()):
+        day -= timedelta(days=1)
+    streak = 0
+    while item in logged.get(day.isoformat(), set()):
+        streak += 1
+        day -= timedelta(days=1)
+    return streak
 
 
 def import_full_backup(src_zip_path: str) -> None:

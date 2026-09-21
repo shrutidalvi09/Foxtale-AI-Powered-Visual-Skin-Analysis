@@ -25,6 +25,16 @@ CATEGORY_LABELS = [
 # setting, so streaks stay meaningful even if that setting changes later).
 STREAK_GAP_DAYS = 10
 
+SCAN_COUNT_MILESTONES = [1, 5, 10, 25, 50]
+STREAK_MILESTONES = [3, 7, 14, 30]
+
+
+@dataclass
+class Badge:
+    icon: str
+    label: str
+    earned: bool
+
 
 @dataclass
 class CategoryTrend:
@@ -93,6 +103,22 @@ def _best_scan_date(records: List[ScanRecord]) -> Optional[str]:
         return sum(LEVEL_SCORE[getter(r.analysis).level] for _, getter in CATEGORY_LABELS) / len(CATEGORY_LABELS)
     best = min(records, key=avg_score)
     return best.timestamp
+
+
+def compute_badges(records: List[ScanRecord]) -> List[Badge]:
+    """Milestone badges for scan count and consistency streak -- a light
+    gamification layer, ordered easiest-to-earn first so the UI can show
+    "what's next" by picking the first unearned one."""
+    total = len(records)
+    streak = _longest_streak(list(reversed(records))) if records else 0
+
+    badges: List[Badge] = []
+    for n in SCAN_COUNT_MILESTONES:
+        label = "First Scan" if n == 1 else f"{n} Scans"
+        badges.append(Badge(icon="fa5s.camera", label=label, earned=total >= n))
+    for n in STREAK_MILESTONES:
+        badges.append(Badge(icon="fa5s.fire", label=f"{n}-Scan Streak", earned=streak >= n))
+    return badges
 
 
 def compute_baseline(records: List[ScanRecord]) -> Dict[str, str]:
