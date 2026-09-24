@@ -5,14 +5,14 @@ summaries are stored -- images only if the user opted in."""
 import tempfile
 from datetime import date, datetime
 from pathlib import Path
-from typing import Callable, List
+from typing import Callable, List, Optional
 
-from PySide6.QtCore import QDate, Qt
+from PySide6.QtCore import QDate, QSize, Qt
 from PySide6.QtGui import QColor, QTextCharFormat
 from PySide6.QtWidgets import (
-    QCalendarWidget, QCheckBox, QComboBox, QFileDialog, QFrame, QHBoxLayout,
-    QHeaderView, QLabel, QLineEdit, QMessageBox, QPushButton, QTableWidget,
-    QTableWidgetItem, QTabWidget, QVBoxLayout, QWidget,
+    QCalendarWidget, QCheckBox, QComboBox, QFileDialog, QFrame, QGridLayout,
+    QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton, QTabWidget,
+    QVBoxLayout, QWidget,
 )
 
 from gui.assets import apply_card_shadow, icon as make_icon, icon_pixmap
@@ -20,10 +20,13 @@ from gui.core import storage
 from gui.core.insights import compute_baseline, compute_insights
 from gui.core.report_export import build_progress_report
 from gui.core.storage import ScanRecord
-from gui.theme import icon_color, pill_stylesheet
+from gui.theme import FOX, icon_color, muted_text_color, pill_stylesheet
+from gui.widgets.history_table import CATEGORY_GETTERS, HistoryListCard, StatTile
 from gui.widgets.trend_chart import TrendChart
 
 LEVEL_FILTER_OPTIONS = ["All levels", "Minimal", "Mild", "Moderate", "Noticeable"]
+TAB_ICONS = ["fa5s.list", "fa5.calendar-alt", "fa5s.chart-line", "fa5s.chart-bar", "fa5s.tasks", "fa5s.trash-restore"]
+WIDE_HEADER_FROM = 1240  # page width from which the header buttons sit beside the title
 
 
 class HistoryPage(QWidget):
@@ -35,84 +38,115 @@ class HistoryPage(QWidget):
         self._filtered_records: List[ScanRecord] = []
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(36, 28, 36, 28)
-        layout.setSpacing(14)
+        layout.setContentsMargins(32, 28, 32, 24)
+        layout.setSpacing(16)
 
-        header_row = QHBoxLayout()
+        # ---- header: title + subtitle on the left, actions on the right ----
+        self._header_grid = QGridLayout()
+        self._header_grid.setHorizontalSpacing(16)
+        self._header_grid.setVerticalSpacing(14)
+        self._header_grid.setColumnStretch(0, 1)
+        self._header_compact = True  # starts stacked; widens only when there is room
+
+        title_widget = QWidget()
+        title_widget.setStyleSheet("background: transparent;")
+        title_col = QVBoxLayout(title_widget)
+        title_col.setContentsMargins(0, 0, 0, 0)
+        title_col.setSpacing(6)
+        title_row = QHBoxLayout()
+        title_row.setSpacing(10)
         header_icon = QLabel()
-        header_icon.setPixmap(icon_pixmap("fa5s.history", icon_color("accent"), size=22))
-        header_row.addWidget(header_icon)
+        header_icon.setPixmap(icon_pixmap("fa5s.history", FOX, size=24))
+        title_row.addWidget(header_icon)
         heading = QLabel("Scan History")
         heading.setObjectName("Heading")
-        header_row.addWidget(heading)
-        header_row.addStretch()
+        title_row.addWidget(heading)
+        title_row.addStretch()
+        title_col.addLayout(title_row)
+        sub = QLabel("Review your past skin scans and track changes over time.")
+        sub.setObjectName("SubHeading")
+        sub.setWordWrap(True)
+        title_col.addWidget(sub)
+        self._header_grid.addWidget(title_widget, 0, 0)
 
-        report_btn = QPushButton(" Progress Report (PDF)")
-        report_btn.setIcon(make_icon("fa5s.file-pdf", icon_color("primary")))
-        report_btn.setObjectName("Secondary")
-        report_btn.clicked.connect(self._export_progress_report)
-        header_row.addWidget(report_btn)
+        self._actions_widget = QWidget()
+        self._actions_widget.setStyleSheet("background: transparent;")
+        actions = QHBoxLayout(self._actions_widget)
+        actions.setContentsMargins(0, 0, 0, 0)
+        actions.setSpacing(10)
+        for text, icon_name, handler, kind in [
+            ("Progress Report (PDF)", "fa5s.file-pdf", self._export_progress_report, "Secondary"),
+            ("Export CSV", "fa5s.file-csv", self._export_csv, "Secondary"),
+            ("Export JSON", "fa5s.file-export", self._export_json, "Secondary"),
+            ("Import JSON", "fa5s.file-import", self._import_json, "Secondary"),
+            ("Delete All History", "fa5s.trash-alt", self._delete_all, "DangerButton"),
+        ]:
+            btn = QPushButton(f"  {text}")
+            btn.setIcon(make_icon(icon_name, "#be123c" if kind == "DangerButton" else icon_color("primary")))
+            btn.setIconSize(QSize(15, 15))
+            btn.setObjectName(kind)
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn.setFixedHeight(44)
+            btn.setStyleSheet("padding: 0 16px; font-size: 12.5px;")
+            btn.clicked.connect(handler)
+            actions.addWidget(btn)
+        self._header_grid.addWidget(self._actions_widget, 1, 0, 1, 2, alignment=Qt.AlignmentFlag.AlignLeft)
+        layout.addLayout(self._header_grid)
 
-        export_csv_btn = QPushButton(" Export CSV")
-        export_csv_btn.setIcon(make_icon("fa5s.file-csv", icon_color("primary")))
-        export_csv_btn.setObjectName("Secondary")
-        export_csv_btn.clicked.connect(self._export_csv)
-        export_btn = QPushButton(" Export JSON")
-        export_btn.setIcon(make_icon("fa5s.file-export", icon_color("primary")))
-        export_btn.setObjectName("Secondary")
-        export_btn.clicked.connect(self._export_json)
-        import_btn = QPushButton(" Import JSON")
-        import_btn.setIcon(make_icon("fa5s.file-import", icon_color("primary")))
-        import_btn.setObjectName("Secondary")
-        import_btn.clicked.connect(self._import_json)
-        delete_all_btn = QPushButton(" Delete All History")
-        delete_all_btn.setIcon(make_icon("fa5s.trash-alt", icon_color("primary")))
-        delete_all_btn.setObjectName("Secondary")
-        delete_all_btn.clicked.connect(self._delete_all)
-        for b in (export_csv_btn, export_btn, import_btn, delete_all_btn):
-            header_row.addWidget(b)
-        layout.addLayout(header_row)
-
-        note = QLabel("Only analysis summaries are stored locally — never images, unless you opt in under Settings.")
-        note.setObjectName("Muted")
-        layout.addWidget(note)
-
+        # ---- search + filters ----
         filter_row = QHBoxLayout()
+        filter_row.setSpacing(14)
         self.search_edit = QLineEdit()
-        self.search_edit.setPlaceholderText("Search by date or note…")
-        self.search_edit.textChanged.connect(self._apply_filters)
+        self.search_edit.setPlaceholderText("Search by date, note, or keyword\u2026")
+        self.search_edit.setFixedHeight(50)
+        self.search_edit.addAction(
+            make_icon("fa5s.search", muted_text_color()), QLineEdit.ActionPosition.TrailingPosition,
+        )
+        self.search_edit.textChanged.connect(self._on_filters_changed)
         filter_row.addWidget(self.search_edit, stretch=1)
 
         self.level_filter = QComboBox()
-        self.level_filter.addItems(LEVEL_FILTER_OPTIONS)
-        self.level_filter.currentIndexChanged.connect(self._apply_filters)
+        self.level_filter.setFixedHeight(50)
+        self.level_filter.setMinimumWidth(170)
+        for option in LEVEL_FILTER_OPTIONS:
+            self.level_filter.addItem(make_icon("fa5s.list", muted_text_color()), option)
+        self.level_filter.currentIndexChanged.connect(self._on_filters_changed)
         filter_row.addWidget(self.level_filter)
 
         self.starred_only_check = QCheckBox("Starred only")
-        self.starred_only_check.stateChanged.connect(self._apply_filters)
+        self.starred_only_check.stateChanged.connect(self._on_filters_changed)
         filter_row.addWidget(self.starred_only_check)
         layout.addLayout(filter_row)
 
+        # ---- at-a-glance stats ----
+        stats_row = QHBoxLayout()
+        stats_row.setSpacing(10)
+        self.stat_tiles = {}
+        for key, icon_name, label, tone in [
+            ("total", "fa5.calendar-alt", "Total Scans", "peach"),
+            ("starred", "fa5.star", "Starred Scans", "lavender"),
+            ("month", "fa5s.chart-line", "This Month", "mint"),
+            ("priority", "fa5s.chart-bar", "High Priority", "blue"),
+            ("images", "fa5.image", "With Images", "yellow"),
+        ]:
+            tile = StatTile(icon_name, label, tone)
+            stats_row.addWidget(tile, 1)
+            self.stat_tiles[key] = tile
+        layout.addLayout(stats_row)
+
         self.tabs = QTabWidget()
+        self.tabs.setObjectName("PageTabs")
         layout.addWidget(self.tabs, stretch=1)
 
         # --- list tab ---
         list_tab = QWidget()
         list_layout = QVBoxLayout(list_tab)
-        self.table = QTableWidget(0, 8)
-        self.table.setHorizontalHeaderLabels(["★", "Date", "Spots", "Redness", "Texture", "Dryness", "Note", ""])
-        self.table.horizontalHeader().setSectionResizeMode(6, QHeaderView.ResizeMode.Stretch)
-        self.table.setColumnWidth(0, 36)
-        self.table.verticalHeader().setVisible(False)
-        self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        self.table.cellDoubleClicked.connect(self._open_row)
-        list_layout.addWidget(self.table)
-        self.empty_label = QLabel("No scans match your filters yet.")
-        self.empty_label.setObjectName("SubHeading")
-        self.empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.empty_label.setVisible(False)
-        list_layout.addWidget(self.empty_label)
+        list_layout.setContentsMargins(0, 10, 0, 0)
+        self.list_card = HistoryListCard()
+        self.list_card.open_record.connect(self._on_open_record)
+        self.list_card.toggle_star.connect(self._toggle_star)
+        self.list_card.delete_scan.connect(self._delete_one)
+        list_layout.addWidget(self.list_card)
         self.tabs.addTab(list_tab, "List")
 
         # --- calendar tab ---
@@ -216,11 +250,44 @@ class HistoryPage(QWidget):
         trash_layout.addStretch()
         self.tabs.addTab(trash_tab, "Recently Deleted")
 
+        self.tabs.tabBar().setIconSize(QSize(16, 16))
+        self.tabs.currentChanged.connect(self._refresh_tab_icons)
+        self._refresh_tab_icons()
+
+        privacy_note = QLabel(
+            "Only analysis summaries are stored locally \u2014 never images, unless you opt in under Settings."
+        )
+        privacy_note.setObjectName("Muted")
+        layout.addWidget(privacy_note)
+
         self.refresh()
+
+    def _refresh_tab_icons(self, *_args) -> None:
+        current = self.tabs.currentIndex()
+        for i, name in enumerate(TAB_ICONS[: self.tabs.count()]):
+            self.tabs.setTabIcon(i, make_icon(name, FOX if i == current else muted_text_color()))
+
+    def resizeEvent(self, event) -> None:  # noqa: N802
+        super().resizeEvent(event)
+        self._reflow_header()
+
+    def _reflow_header(self) -> None:
+        compact = self.width() < WIDE_HEADER_FROM
+        if compact == self._header_compact:
+            return
+        self._header_compact = compact
+        self._header_grid.removeWidget(self._actions_widget)
+        if compact:
+            self._header_grid.addWidget(self._actions_widget, 1, 0, 1, 2, alignment=Qt.AlignmentFlag.AlignLeft)
+        else:
+            self._header_grid.addWidget(
+                self._actions_widget, 0, 1, alignment=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop,
+            )
 
     def refresh(self) -> None:
         storage.purge_expired_trash()
         self._records = storage.list_scans()
+        self._render_stats()
         self._apply_filters()
         self.chart.plot(self._records)
         self._render_insights()
@@ -505,6 +572,27 @@ class HistoryPage(QWidget):
 
         self.insights_layout.addStretch()
 
+    def _render_stats(self) -> None:
+        now = datetime.now()
+        records = self._records
+
+        def in_this_month(record: ScanRecord) -> bool:
+            when = datetime.fromisoformat(record.timestamp)
+            return when.year == now.year and when.month == now.month
+
+        def is_high_priority(record: ScanRecord) -> bool:
+            return any(getter(record.analysis).level == "noticeable" for getter in CATEGORY_GETTERS.values())
+
+        self.stat_tiles["total"].set_value(len(records))
+        self.stat_tiles["starred"].set_value(sum(1 for r in records if r.starred))
+        self.stat_tiles["month"].set_value(sum(1 for r in records if in_this_month(r)))
+        self.stat_tiles["priority"].set_value(sum(1 for r in records if is_high_priority(r)))
+        self.stat_tiles["images"].set_value(sum(1 for r in records if r.image_path))
+
+    def _on_filters_changed(self, *_args) -> None:
+        self.list_card.reset_page()
+        self._apply_filters()
+
     def _apply_filters(self) -> None:
         query = self.search_edit.text().strip().lower()
         level = self.level_filter.currentText()
@@ -514,52 +602,25 @@ class HistoryPage(QWidget):
         for r in self._records:
             if starred_only and not r.starred:
                 continue
-            if level != "All levels":
-                levels = {
-                    r.analysis.acne_like_spots.level, r.analysis.redness.level,
-                    r.analysis.texture.level, r.analysis.dryness_indicators.level,
-                }
-                if level.lower() not in levels:
-                    continue
-            if query and query not in r.timestamp.lower() and query not in r.note.lower():
+            levels = {getter(r.analysis).level for getter in CATEGORY_GETTERS.values()}
+            if level != "All levels" and level.lower() not in levels:
                 continue
+            if query:
+                when = datetime.fromisoformat(r.timestamp)
+                haystack = " ".join([
+                    r.timestamp.lower(), when.strftime("%b %d, %Y %I:%M %p").lower(),
+                    when.strftime("%B").lower(), r.note.lower(), " ".join(sorted(levels)),
+                ])
+                if query not in haystack:
+                    continue
             filtered.append(r)
 
         self._filtered_records = filtered
-        self._render_rows(filtered)
-
-    def _render_rows(self, records: List[ScanRecord]) -> None:
-        self.table.setRowCount(len(records))
-        self._row_ids = []
-        self.empty_label.setVisible(len(records) == 0)
-        self.table.setVisible(len(records) > 0)
-
-        for row, record in enumerate(records):
-            self._row_ids.append(record.id)
-            a = record.analysis
-
-            star_btn = QPushButton()
-            star_btn.setIcon(make_icon("fa5s.star" if record.starred else "fa5.star", icon_color("primary")))
-            star_btn.setFlat(True)
-            star_btn.setToolTip("Unstar" if record.starred else "Star")
-            star_btn.clicked.connect(lambda _, sid=record.id: self._toggle_star(sid))
-            self.table.setCellWidget(row, 0, star_btn)
-
-            values = [
-                record.timestamp.replace("T", " ")[:16],
-                a.acne_like_spots.level.title(),
-                a.redness.level.title(),
-                a.texture.level.title(),
-                a.dryness_indicators.level.title(),
-                record.note,
-            ]
-            for i, value in enumerate(values):
-                self.table.setItem(row, i + 1, QTableWidgetItem(value))
-
-            delete_btn = QPushButton("Delete")
-            delete_btn.setObjectName("Secondary")
-            delete_btn.clicked.connect(lambda _, sid=record.id: self._delete_one(sid))
-            self.table.setCellWidget(row, 7, delete_btn)
+        message = (
+            "No scans yet \u2014 start a scan and it will appear here."
+            if not self._records else "No scans match your filters yet."
+        )
+        self.list_card.set_records(filtered, message)
 
     def _toggle_star(self, scan_id: str) -> None:
         current = next((r for r in self._records if r.id == scan_id), None)
@@ -567,12 +628,6 @@ class HistoryPage(QWidget):
             return
         storage.set_scan_starred(scan_id, not current.starred)
         self.refresh()
-
-    def _open_row(self, row: int, col: int) -> None:
-        if col == 0:  # the star column has its own click handler
-            return
-        scan_id = self._row_ids[row]
-        self._on_open_record(scan_id)
 
     def _delete_one(self, scan_id: str) -> None:
         storage.delete_scan(scan_id)

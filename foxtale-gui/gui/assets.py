@@ -32,6 +32,22 @@ def icon_pixmap(name: str, color: str, size: int = 20) -> QPixmap:
     return qta.icon(name, color=color).pixmap(size, size)
 
 
+def icon_circle(icon_name: str, fg: str, bg: str, size: int = 44, icon_size: int = 18) -> QWidget:
+    """A round, softly tinted badge with one flat icon centered in it."""
+    from PySide6.QtWidgets import QFrame, QLabel, QVBoxLayout
+
+    circle = QFrame()
+    circle.setFixedSize(size, size)
+    circle.setStyleSheet(f"background-color: {bg}; border-radius: {size // 2}px; border: none;")
+    inner = QVBoxLayout(circle)
+    inner.setContentsMargins(0, 0, 0, 0)
+    label = QLabel()
+    label.setPixmap(icon_pixmap(icon_name, fg, size=icon_size))
+    label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    inner.addWidget(label)
+    return circle
+
+
 def logo_mark_pixmap(height: int = 30) -> QPixmap:
     """Just the fox line-art (no wordmark), scaled to a target height,
     for small contexts like the sidebar."""
@@ -99,9 +115,17 @@ def splash_pixmap(width: int = 480, height: int = 320) -> QPixmap:
     return pixmap
 
 
-def apply_card_shadow(widget: QWidget, blur: int = 30, y_offset: int = 8, alpha: int = 28) -> None:
+def apply_card_shadow(
+    widget: QWidget, blur: int = 30, y_offset: int = 8, alpha: int = 28,
+    rgb: tuple = (11, 18, 36),
+) -> None:
     effect = QGraphicsDropShadowEffect(widget)
     effect.setBlurRadius(blur)
     effect.setOffset(0, y_offset)
-    effect.setColor(QColor(11, 18, 36, alpha))
+    effect.setColor(QColor(*rgb, alpha))
     widget.setGraphicsEffect(effect)
+
+
+def apply_cta_glow(button: QWidget) -> None:
+    """A soft brand-orange glow under a primary call-to-action button."""
+    apply_card_shadow(button, blur=26, y_offset=8, alpha=85, rgb=(229, 74, 0))

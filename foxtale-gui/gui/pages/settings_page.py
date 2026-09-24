@@ -163,6 +163,7 @@ class SettingsPage(QWidget):
         self.theme_combo = QComboBox()
         self.theme_combo.addItem("Light", "light")
         self.theme_combo.addItem("Dark", "dark")
+        self.theme_combo.addItem("System (match device)", "auto")
         self.theme_combo.addItem("Auto (matches system)", "auto")
         self.theme_combo.currentIndexChanged.connect(self._on_change)
         row.addWidget(self.theme_combo)

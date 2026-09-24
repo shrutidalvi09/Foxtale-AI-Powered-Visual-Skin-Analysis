@@ -50,7 +50,7 @@ class MainWindow(QMainWindow):
         self._settings = storage.load_settings()
         # Bake theme-correct icon colors before any icon-bearing widget is
         # constructed below (icons are flat-color bitmaps, set once).
-        set_current_theme(self._settings.get("theme", "light"))
+        set_current_theme(self._resolve_theme(self._settings.get("theme", "light")))
         self._restore_window_geometry()
 
         central = QWidget()
@@ -175,6 +175,7 @@ class MainWindow(QMainWindow):
             on_new_scan=lambda: self.navigate("scan"),
             on_delete=self._on_delete_scan,
             show_toast=self._toast,
+            on_upload_image=self._upload_from_analysis,
         )
         self.history_page = HistoryPage(on_open_record=self._open_history_record, show_toast=self._toast)
         self.compare_page = ComparePage()
@@ -328,6 +329,10 @@ class MainWindow(QMainWindow):
         menu_bar = self.menuBar()
 
         file_menu = menu_bar.addMenu("&File")
+        palette_action = file_menu.addAction("Quick Actions…")
+        palette_action.setShortcut(QKeySequence("Ctrl+K"))
+        palette_action.triggered.connect(self._show_command_palette)
+        file_menu.addSeparator()
         new_scan_action = file_menu.addAction("New Scan")
         new_scan_action.setShortcut(QKeySequence("Ctrl+N"))
         new_scan_action.triggered.connect(lambda: self.navigate("scan"))
@@ -393,6 +398,24 @@ class MainWindow(QMainWindow):
         storage.save_settings(self._settings)
         self.apply_theme(next_theme)
 
+    def _show_command_palette(self) -> None:
+        if self.lock_screen.isVisible():
+            return
+        commands = [(f"Go to {label}", lambda k=key: self.navigate(k)) for key, label, _icon in NAV_ITEMS]
+        commands.append(("New Scan", lambda: self.navigate("scan")))
+        commands.append(("Toggle Light/Dark Theme", self._toggle_theme_quick))
+        if self._settings.get("app_lock_enabled", False) and app_lock.has_pin():
+            commands.append(("Lock Now", self._lock))
+        CommandPalette(commands, parent=self).exec()
+
+    def _toggle_theme_quick(self) -> None:
+        current = self._resolve_theme(self._settings.get("theme", "light"))
+        new_theme = "dark" if current == "light" else "light"
+        self._settings["theme"] = new_theme
+        storage.save_settings(self._settings)
+        self.apply_theme(new_theme)
+        self.settings_page.reload()
+
     def _show_about_dialog(self) -> None:
         AboutDialog(parent=self).exec()
 
@@ -416,6 +439,12 @@ class MainWindow(QMainWindow):
             self.privacy_page.refresh()
         if key == "settings":
             self.settings_page.reload()
+        if key == "results" and not self.results_page.has_record():
+            latest = storage.list_scans()[:1]
+            if latest:
+                record = latest[0]
+                image = cv2.imread(record.image_path) if record.image_path else None
+                self.results_page.show_record(record, image)
 
         self.stack.setCurrentWidget(self._pages[key])
         for k, btn in self._nav_buttons.items():
@@ -453,8 +482,13 @@ class MainWindow(QMainWindow):
 
     def _on_delete_scan(self, scan_id: str) -> None:
         storage.delete_scan(scan_id)
+        self.results_page.show_empty()
         self._toast("Moved to Recently Deleted.")
         self.navigate("scan")
+
+    def _upload_from_analysis(self) -> None:
+        self.navigate("scan")
+        QTimer.singleShot(0, self.scan_page.camera.import_photo)
 
     def _on_settings_changed(self, partial: dict) -> None:
         self._settings.update(partial)

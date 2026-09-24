@@ -8,17 +8,19 @@ from typing import Callable, List, Optional
 
 import cv2
 import numpy as np
-from PySide6.QtCore import QPointF, QRectF, Qt
-from PySide6.QtGui import QColor, QImage, QPainter, QPainterPath, QPen, QPixmap
+from PySide6.QtCore import QPointF, QRectF, QSize, Qt
+from PySide6.QtGui import QColor, QImage, QPainter, QPainterPath, QPen, QPixmap, QRadialGradient
 from PySide6.QtWidgets import (
     QFrame, QGridLayout, QHBoxLayout, QLabel, QProgressBar, QPushButton,
     QScrollArea, QVBoxLayout, QWidget,
 )
 
-from gui.assets import apply_card_shadow, icon as make_icon, icon_pixmap, logo_mark_pixmap
+from PySide6.QtWidgets import QSizePolicy
+
+from gui.assets import apply_card_shadow, apply_cta_glow, icon as make_icon, icon_pixmap
 from gui.core import storage
 from gui.core.insights import compute_badges
-from gui.theme import FOX, icon_color, level_pill_colors, muted_text_color
+from gui.theme import FOX, ORANGE_TEXT, get_current_theme, icon_color, level_pill_colors, muted_text_color
 from gui.widgets.disclaimer import DisclaimerBanner
 
 MILESTONES = [(1, "First Scan"), (5, "5 Scans"), (10, "10 Scans"), (25, "25 Scans")]
@@ -83,17 +85,97 @@ def _link_button(text: str) -> QPushButton:
     return btn
 
 
+class _JourneyStepper(QWidget):
+    """Milestone tracker: nodes joined by one continuous line, with the
+    reached milestones filled orange (white check / trophy), the next target
+    haloed, and the rest greyed -- painted directly so every node and label
+    lines up exactly instead of depending on nested-layout metrics."""
+
+    NODE_R = 15
+    CENTER_Y = 20
+
+    def __init__(self, total: int, parent=None):
+        super().__init__(parent)
+        self._total = total
+        self.setFixedHeight(74)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
+    def paintEvent(self, event) -> None:  # noqa: N802
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        n = len(MILESTONES)
+        margin = 38
+        span = self.width() - 2 * margin
+        xs = [margin + i * span / (n - 1) for i in range(n)]
+        cy, r = self.CENTER_Y, self.NODE_R
+
+        achieved_idx = -1
+        for i, (count, _) in enumerate(MILESTONES):
+            if self._total >= count:
+                achieved_idx = i
+
+        for i in range(1, n):
+            active = i <= achieved_idx + 1
+            pen = QPen(QColor(FOX if active else "#e7e9f0"), 3)
+            pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+            painter.setPen(pen)
+            painter.drawLine(QPointF(xs[i - 1] + r, cy), QPointF(xs[i] - r, cy))
+
+        text_color = QColor("#0b1224" if get_current_theme() == "light" else "#e7ecf7")
+        label_font = painter.font()
+        label_font.setPointSizeF(9)
+        label_font.setBold(True)
+        painter.setFont(label_font)
+
+        for i, (_, label) in enumerate(MILESTONES):
+            x = xs[i]
+            is_last = i == n - 1
+            achieved = i <= achieved_idx
+            target = i == achieved_idx + 1
+
+            if achieved:
+                painter.setPen(Qt.PenStyle.NoPen)
+                painter.setBrush(QColor(FOX))
+                painter.drawEllipse(QPointF(x, cy), r, r)
+                glyph, glyph_color = ("fa5s.trophy" if is_last else "fa5s.check"), "white"
+            elif target:
+                halo = QColor(FOX)
+                halo.setAlpha(50)
+                painter.setPen(Qt.PenStyle.NoPen)
+                painter.setBrush(halo)
+                painter.drawEllipse(QPointF(x, cy), r + 5, r + 5)
+                painter.setBrush(QColor(FOX))
+                painter.drawEllipse(QPointF(x, cy), r, r)
+                painter.setBrush(QColor("white"))
+                painter.drawEllipse(QPointF(x, cy), 4.5, 4.5)
+                glyph = None
+            else:
+                painter.setPen(QPen(QColor("#e2e5ee"), 2))
+                painter.setBrush(QColor("#f4f5f9"))
+                painter.drawEllipse(QPointF(x, cy), r - 1, r - 1)
+                glyph, glyph_color = ("fa5s.trophy", "#b8c0d6") if is_last else (None, None)
+
+            if glyph:
+                pm = icon_pixmap(glyph, glyph_color, size=13)
+                painter.drawPixmap(int(x - pm.width() / pm.devicePixelRatio() / 2),
+                                   int(cy - pm.height() / pm.devicePixelRatio() / 2), pm)
+
+            painter.setPen(QColor(ORANGE_TEXT) if target else text_color if achieved else QColor(muted_text_color()))
+            painter.drawText(QRectF(x - 44, cy + r + 10, 88, 20), Qt.AlignmentFlag.AlignCenter, label)
+        painter.end()
+
+
 class _HeroVisual(QFrame):
-    """The hero card's photo panel: the user's own last saved scan photo
-    (saving images is opt-in and off by default, so this is often empty)
-    with a translucent triangulated "scan mesh" + viewfinder brackets drawn
-    on top -- the same scanning motif as the live camera view, applied here
-    as static decoration. Falls back to the fox mark when no photo exists;
-    never a stock photo of a real person."""
+    """The hero card's visual panel: the user's own last saved scan photo
+    when there is one (saving images is opt-in and off by default), with a
+    translucent scan mesh + viewfinder brackets over it -- otherwise a
+    line-art face with the same mesh, drawn in the fox logo's own line-art
+    style. Never a stock photo of a real person."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setMinimumSize(240, 300)
+        self.setMinimumSize(250, 330)
+        self.setStyleSheet("background: transparent; border: none;")
         self._pixmap: Optional[QPixmap] = None
 
     def set_photo(self, frame_bgr: Optional[np.ndarray]) -> None:
@@ -129,17 +211,90 @@ class _HeroVisual(QFrame):
             self._draw_scan_mesh(painter, rect)
             self._draw_viewfinder(painter, rect)
         else:
-            # No saved scan photo yet (saving images is opt-in and off by
-            # default) -- a clean, static fox mark rather than a mesh
-            # overlay with nothing underneath it to justify one.
-            painter.fillRect(rect, QColor(255, 243, 234))
-            mark = logo_mark_pixmap(int(rect.height() * 0.34))
-            mx = rect.x() + (rect.width() - mark.width()) / 2
-            my = rect.y() + (rect.height() - mark.height()) / 2
-            painter.drawPixmap(int(mx), int(my), mark)
+            self._draw_illustration(painter, rect)
+            painter.setClipping(False)
+            self._draw_viewfinder(painter, rect)
 
         painter.restore()
         painter.end()
+
+    @staticmethod
+    def _draw_illustration(painter: QPainter, rect: QRectF) -> None:
+        """Line-art face + scan mesh on a soft peach wash -- shown until the
+        user has a saved scan photo of their own."""
+        wash = QRadialGradient(rect.center().x(), rect.top() + rect.height() * 0.42, rect.height() * 0.75)
+        wash.setColorAt(0.0, QColor("#fffaf6"))
+        wash.setColorAt(1.0, QColor("#ffe2cf"))
+        painter.fillRect(rect, wash)
+
+        # Keep the drawing's proportions however tall the panel gets.
+        stage_h = min(rect.height(), rect.width() * 1.18)
+        w, h = rect.width(), stage_h
+        ox, oy = rect.left(), rect.top() + (rect.height() - stage_h) / 2
+
+        def pt(u: float, v: float) -> QPointF:
+            return QPointF(ox + u * w, oy + v * h)
+
+        line = QColor(FOX)
+        line.setAlpha(210)
+        outline_pen = QPen(line, 2.2)
+        outline_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        painter.setPen(outline_pen)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+
+        # head (egg-shaped: fuller at the brow, tapering to the chin), neck, shoulders
+        head = QPainterPath()
+        head.moveTo(pt(0.50, 0.17))
+        head.cubicTo(pt(0.71, 0.17), pt(0.75, 0.40), pt(0.69, 0.55))
+        head.cubicTo(pt(0.65, 0.66), pt(0.57, 0.75), pt(0.50, 0.77))
+        head.cubicTo(pt(0.43, 0.75), pt(0.35, 0.66), pt(0.31, 0.55))
+        head.cubicTo(pt(0.25, 0.40), pt(0.29, 0.17), pt(0.50, 0.17))
+        painter.drawPath(head)
+
+        neck = QPainterPath()
+        neck.moveTo(pt(0.43, 0.74))
+        neck.cubicTo(pt(0.43, 0.82), pt(0.40, 0.85), pt(0.22, 0.92))
+        neck.moveTo(pt(0.57, 0.74))
+        neck.cubicTo(pt(0.57, 0.82), pt(0.60, 0.85), pt(0.78, 0.92))
+        painter.drawPath(neck)
+
+        # eyes, brows, nose, lips
+        feature_pen = QPen(line, 1.8)
+        feature_pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        painter.setPen(feature_pen)
+        for side in (-1, 1):
+            cx = 0.5 + side * 0.09
+            painter.drawArc(QRectF(ox + (cx - 0.055) * w, oy + 0.385 * h, 0.11 * w, 0.045 * h), 200 * 16, 140 * 16)
+            painter.drawArc(QRectF(ox + (cx - 0.06) * w, oy + 0.33 * h, 0.12 * w, 0.04 * h), 30 * 16 if side < 0 else 110 * 16, 40 * 16)
+        painter.drawLine(pt(0.50, 0.43), pt(0.485, 0.53))
+        painter.drawArc(QRectF(ox + 0.455 * w, oy + 0.52 * h, 0.09 * w, 0.03 * h), 200 * 16, 140 * 16)
+        painter.drawArc(QRectF(ox + 0.44 * w, oy + 0.61 * h, 0.12 * w, 0.045 * h), 200 * 16, 140 * 16)
+
+        # scan mesh: nodes over the face, joined to their near neighbours
+        nodes = [
+            (0.50, 0.22), (0.41, 0.27), (0.59, 0.27), (0.35, 0.36), (0.65, 0.36), (0.50, 0.33),
+            (0.42, 0.44), (0.58, 0.44), (0.36, 0.50), (0.64, 0.50), (0.50, 0.51),
+            (0.43, 0.58), (0.57, 0.58), (0.50, 0.66), (0.40, 0.65), (0.60, 0.65), (0.50, 0.73),
+        ]
+        mesh = QColor(FOX)
+        mesh.setAlpha(95)
+        painter.setPen(QPen(mesh, 1))
+        threshold = 0.155 * min(w, h)
+        pts = [pt(u, v) for u, v in nodes]
+        for i in range(len(pts)):
+            for j in range(i + 1, len(pts)):
+                if (pts[i] - pts[j]).manhattanLength() < threshold * 1.25:
+                    painter.drawLine(pts[i], pts[j])
+        painter.setPen(Qt.PenStyle.NoPen)
+        for p in pts:
+            glow = QColor(FOX)
+            glow.setAlpha(60)
+            painter.setBrush(glow)
+            painter.drawEllipse(p, 6.5, 6.5)
+            painter.setBrush(QColor("white"))
+            painter.drawEllipse(p, 3.2, 3.2)
+            painter.setBrush(QColor(FOX))
+            painter.drawEllipse(p, 1.8, 1.8)
 
     @staticmethod
     def _draw_scan_mesh(painter: QPainter, rect: QRectF) -> None:
@@ -187,7 +342,7 @@ class _MiniFaceDiagram(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setFixedSize(92, 108)
+        self.setFixedSize(104, 122)
         self._dot_colors: List[str] = []
 
     def set_levels(self, levels: List[str]) -> None:
@@ -259,12 +414,16 @@ class HomePage(QWidget):
         header_row.addLayout(greeting_col)
         header_row.addStretch()
 
-        start_scan_btn = QPushButton(" Start New Scan")
-        start_scan_btn.setIcon(make_icon("fa5s.magic", icon_color("on_primary")))
-        start_scan_btn.setObjectName("Primary")
+        start_scan_btn = QPushButton("  Start New Scan")
+        start_scan_btn.setIcon(make_icon("fa6s.wand-magic-sparkles", "white"))
+        start_scan_btn.setIconSize(QSize(18, 18))
+        start_scan_btn.setObjectName("Cta")
         start_scan_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        start_scan_btn.setFixedHeight(50)
+        start_scan_btn.setMinimumWidth(200)
+        apply_cta_glow(start_scan_btn)
         start_scan_btn.clicked.connect(self._on_start_scan)
-        header_row.addWidget(start_scan_btn)
+        header_row.addWidget(start_scan_btn, alignment=Qt.AlignmentFlag.AlignTop)
         self._layout.addLayout(header_row)
 
         # --- reminder banner (only shown when overdue) ---
@@ -282,63 +441,73 @@ class HomePage(QWidget):
 
         hero = QFrame()
         hero.setObjectName("HeroGradient")
+        hero.setMinimumHeight(430)
         apply_card_shadow(hero, blur=32, y_offset=10, alpha=22)
         hero_row = QHBoxLayout(hero)
-        hero_row.setContentsMargins(40, 36, 32, 36)
-        hero_row.setSpacing(28)
+        hero_row.setContentsMargins(44, 36, 28, 36)
+        hero_row.setSpacing(24)
 
         hero_text_col = QVBoxLayout()
-        hero_text_col.setSpacing(12)
-        heading = QLabel('Understand Your Skin\nWith AI <span style="color:%s;">Vision</span>' % FOX)
+        hero_text_col.setSpacing(14)
+        hero_text_col.addStretch()
+        heading = QLabel('Understand Your Skin<br>With AI <span style="color:%s;">Vision</span>' % FOX)
         heading.setTextFormat(Qt.TextFormat.RichText)
         heading.setObjectName("Heading")
-        heading.setStyleSheet("font-size: 27px;")
+        heading.setStyleSheet("font-size: 30px; font-weight: 800;")
         hero_text_col.addWidget(heading)
         hero_sub = QLabel("Get visual insights from your facial scan.\nYour analysis stays on your device.")
         hero_sub.setObjectName("SubHeading")
         hero_text_col.addWidget(hero_sub)
 
-        chips_row = QHBoxLayout()
+        chips_frame = QFrame()
+        chips_frame.setObjectName("TrustChips")
+        chips_row = QHBoxLayout(chips_frame)
+        chips_row.setContentsMargins(16, 12, 16, 12)
         chips_row.setSpacing(18)
-        for icon_name, title, body in [
-            ("fa5s.lock", "Private", "Your data stays\non your device"),
-            ("fa5s.shield-alt", "Secure", "End-to-end\nprotection"),
-            ("fa5s.magic", "AI Powered", "Advanced visual\nanalysis"),
+        for icon_name, icon_fg, title, body in [
+            ("fa5s.lock", "#c2410c", "Private", "Your data stays\non your device"),
+            ("fa5s.shield-alt", "#12805c", "Secure", "Processed\nlocally"),
+            ("fa6s.wand-magic-sparkles", "#c2410c", "AI Powered", "Advanced visual\nanalysis"),
         ]:
             chip = QHBoxLayout()
             chip.setSpacing(8)
             icon_lbl = QLabel()
-            icon_lbl.setPixmap(icon_pixmap(icon_name, icon_color("primary"), size=14))
+            icon_lbl.setPixmap(icon_pixmap(icon_name, icon_fg, size=16))
             icon_lbl.setAlignment(Qt.AlignmentFlag.AlignTop)
             chip.addWidget(icon_lbl)
             text_col = QVBoxLayout()
             text_col.setSpacing(0)
             t = QLabel(title)
-            t.setStyleSheet("font-weight: 700; font-size: 11.5px;")
+            t.setStyleSheet("font-weight: 800; font-size: 11.5px;")
             text_col.addWidget(t)
             b = QLabel(body)
             b.setObjectName("Muted")
             text_col.addWidget(b)
             chip.addLayout(text_col)
             chips_row.addLayout(chip)
-        chips_row.addStretch()
-        hero_text_col.addLayout(chips_row)
+        hero_text_col.addWidget(chips_frame, alignment=Qt.AlignmentFlag.AlignLeft)
 
-        start_ai_btn = QPushButton(" Start AI Skin Scan")
-        start_ai_btn.setIcon(make_icon("fa5s.camera", icon_color("on_primary")))
-        start_ai_btn.setObjectName("Primary")
+        start_ai_btn = QPushButton("  Start AI Skin Scan")
+        start_ai_btn.setIcon(make_icon("fa5s.camera", "white"))
+        start_ai_btn.setIconSize(QSize(18, 18))
+        start_ai_btn.setObjectName("Cta")
         start_ai_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        start_ai_btn.setMinimumHeight(42)
+        start_ai_btn.setFixedHeight(52)
+        start_ai_btn.setMinimumWidth(260)
+        apply_cta_glow(start_ai_btn)
         start_ai_btn.clicked.connect(self._on_start_scan)
         hero_text_col.addWidget(start_ai_btn, alignment=Qt.AlignmentFlag.AlignLeft)
 
-        caption = QLabel()
+        caption_row = QHBoxLayout()
+        caption_row.setSpacing(6)
+        clock = QLabel()
+        clock.setPixmap(icon_pixmap("fa5.clock", muted_text_color(), size=13))
+        caption_row.addWidget(clock)
+        caption = QLabel("Takes about 30 seconds  •  Camera required")
         caption.setObjectName("Muted")
-        caption.setTextFormat(Qt.TextFormat.RichText)
-        caption.setText(
-            '<span>\U0001F551 Takes about 30 seconds &nbsp;•&nbsp; Camera required</span>'
-        )
-        hero_text_col.addWidget(caption)
+        caption_row.addWidget(caption)
+        caption_row.addStretch()
+        hero_text_col.addLayout(caption_row)
         hero_text_col.addStretch()
 
         hero_row.addLayout(hero_text_col, stretch=3)
@@ -372,18 +541,25 @@ class HomePage(QWidget):
             card = QFrame()
             card.setObjectName("Card")
             apply_card_shadow(card, blur=18, y_offset=4, alpha=20)
-            v = QVBoxLayout(card)
-            v.addWidget(_icon_circle(icon_name, fg, bg))
+            h = QHBoxLayout(card)
+            h.setContentsMargins(20, 18, 18, 18)
+            h.setSpacing(16)
+            h.addWidget(_icon_circle(icon_name, fg, bg, size=58, icon_size=24), alignment=Qt.AlignmentFlag.AlignTop)
+            v = QVBoxLayout()
+            v.setSpacing(3)
             t = QLabel(title)
             t.setObjectName("CardTitle")
             v.addWidget(t)
             b = QLabel(body)
-            b.setObjectName("Muted")
+            b.setObjectName("SubHeading")
             b.setWordWrap(True)
             v.addWidget(b)
+            v.addSpacing(2)
             link = _link_button("Learn more")
             link.clicked.connect(lambda _, k=target: self._on_navigate(k))
             v.addWidget(link, alignment=Qt.AlignmentFlag.AlignLeft)
+            v.addStretch()
+            h.addLayout(v, stretch=1)
             features_grid.addWidget(card, 0, i)
         self._layout.addLayout(features_grid)
 
@@ -391,6 +567,7 @@ class HomePage(QWidget):
         self._layout.addLayout(self._achievements_slot)
 
         self._layout.addWidget(DisclaimerBanner())
+        self._layout.addStretch(1)
 
         self.refresh()
 
@@ -416,9 +593,9 @@ class HomePage(QWidget):
             datetime.fromisoformat(latest.timestamp).strftime("%b %d, %Y") if latest else "—"
         )
         for icon_name, title, sub_label in [
-            ("fa5s.crop-alt", f"{total:02d}", "Total Scans"),
-            ("fa5s.calendar-alt", last_scan_text, "Last Scan"),
-            ("fa5s.star", _milestone_status(total), "Current Status"),
+            ("fa5s.expand", f"{total:02d}", "Total Scans"),
+            ("fa5.calendar-alt", last_scan_text, "Last Scan"),
+            ("fa5.star", _milestone_status(total), "Current Status"),
         ]:
             self._stats_row.addWidget(self._build_stat_card(icon_name, title, sub_label))
 
@@ -455,120 +632,73 @@ class HomePage(QWidget):
         card.setObjectName("Card")
         apply_card_shadow(card, blur=18, y_offset=4, alpha=20)
         row = QHBoxLayout(card)
-        row.setContentsMargins(18, 16, 18, 16)
-        row.addWidget(_icon_circle(icon_name, FOX, _STAT_ICON_BG))
+        row.setContentsMargins(22, 18, 22, 18)
+        row.setSpacing(16)
+        row.addWidget(_icon_circle(icon_name, FOX, _STAT_ICON_BG, size=54, icon_size=22))
         text_col = QVBoxLayout()
         text_col.setSpacing(0)
         value_label = QLabel(value)
         value_label.setObjectName("CardTitle")
-        value_label.setStyleSheet("font-size: 16px;")
+        value_label.setStyleSheet("font-size: 21px; font-weight: 800;")
         text_col.addWidget(value_label)
         sub_label = QLabel(label)
-        sub_label.setObjectName("Muted")
+        sub_label.setObjectName("SubHeading")
         text_col.addWidget(sub_label)
         row.addLayout(text_col, stretch=1)
         return card
 
     def _build_journey(self, total: int) -> None:
+        self._journey_layout.setContentsMargins(22, 20, 22, 20)
+        self._journey_layout.setSpacing(0)
+
         header = QHBoxLayout()
         title = QLabel("Your Skin Journey")
         title.setObjectName("CardTitle")
+        title.setStyleSheet("font-size: 15px;")
         header.addWidget(title)
         header.addStretch()
-        header.addWidget(_icon_circle("fa5s.crown", FOX, _STAT_ICON_BG, size=30, icon_size=13))
+        header.addWidget(_icon_circle("fa5s.crown", FOX, _STAT_ICON_BG, size=32, icon_size=14))
         self._journey_layout.addLayout(header)
 
-        self._journey_layout.addSpacing(10)
-        self._journey_layout.addWidget(self._build_stepper(total))
-        self._journey_layout.addSpacing(10)
+        self._journey_layout.addSpacing(14)
+        self._journey_layout.addWidget(_JourneyStepper(total))
+        self._journey_layout.addSpacing(6)
 
         current, target, maxed = _journey_progress(total)
         bar = QProgressBar()
+        bar.setObjectName("JourneyBar")
         bar.setRange(0, target)
         bar.setValue(current)
         bar.setTextVisible(False)
         bar.setFixedHeight(8)
         self._journey_layout.addWidget(bar)
+        self._journey_layout.addSpacing(10)
 
-        fraction = QLabel(f"{current} / {target} scans completed")
-        fraction.setStyleSheet(f"color: {FOX}; font-weight: 700; font-size: 11.5px;")
+        fraction = QLabel(
+            f'<span style="color:{ORANGE_TEXT}; font-weight:800;">{current} / {target}</span> scans completed'
+        )
+        fraction.setTextFormat(Qt.TextFormat.RichText)
+        fraction.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        fraction.setStyleSheet("font-size: 12px;")
         self._journey_layout.addWidget(fraction)
+        self._journey_layout.addSpacing(4)
 
         note = QLabel(
             "You've unlocked every milestone so far!" if maxed
-            else "Keep scanning to track changes and unlock new insights."
+            else "Keep scanning to track changes\nand unlock new insights."
         )
         note.setObjectName("Muted")
-        note.setWordWrap(True)
+        note.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._journey_layout.addWidget(note)
 
-    def _build_stepper(self, total: int) -> QWidget:
-        container = QWidget()
-        row = QHBoxLayout(container)
-        row.setContentsMargins(0, 0, 0, 0)
-        row.setSpacing(0)
-
-        achieved_idx = -1
-        for i, (count, _) in enumerate(MILESTONES):
-            if total >= count:
-                achieved_idx = i
-
-        for i, (count, label) in enumerate(MILESTONES):
-            if i > 0:
-                line = QFrame()
-                line.setFixedHeight(2)
-                line.setStyleSheet(
-                    f"background-color: {FOX if i <= achieved_idx else '#e7e9f0'}; border: none;"
-                )
-                row.addWidget(line, stretch=1)
-
-            is_last = i == len(MILESTONES) - 1
-            is_achieved = i <= achieved_idx
-            is_next_target = i == achieved_idx + 1
-
-            circle = QFrame()
-            icon_lbl = QLabel()
-            if is_achieved and not is_last:
-                circle.setFixedSize(30, 30)
-                circle.setStyleSheet(f"background-color: {FOX}; border-radius: 15px; border: none;")
-                icon_lbl.setPixmap(icon_pixmap("fa5s.check", "white", size=12))
-            elif is_next_target and not is_last:
-                circle.setFixedSize(34, 34)
-                circle.setStyleSheet(f"background-color: {FOX}; border-radius: 17px; border: none;")
-            else:
-                circle.setFixedSize(30, 30)
-                circle.setStyleSheet("background-color: #f2f3f7; border-radius: 15px; border: 2px solid #e7e9f0;")
-                if is_last:
-                    icon_lbl.setPixmap(
-                        icon_pixmap("fa5s.trophy", FOX if is_achieved else "#b8c0d6", size=12)
-                    )
-            circle_layout = QVBoxLayout(circle)
-            circle_layout.setContentsMargins(0, 0, 0, 0)
-            circle_layout.addWidget(icon_lbl, alignment=Qt.AlignmentFlag.AlignCenter)
-
-            node_col = QVBoxLayout()
-            node_col.setSpacing(6)
-            circle_wrap = QHBoxLayout()
-            circle_wrap.addStretch()
-            circle_wrap.addWidget(circle)
-            circle_wrap.addStretch()
-            node_col.addLayout(circle_wrap)
-
-            text = QLabel(label)
-            text.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            text.setStyleSheet(
-                f"font-size: 11px; font-weight: 700; color: {FOX if is_achieved else muted_text_color()};"
-            )
-            node_col.addWidget(text)
-
-            row.addLayout(node_col)
-
-        return container
-
     def _build_latest_analysis(self, latest) -> None:
+        self._latest_layout.setContentsMargins(22, 20, 22, 20)
+        self._latest_layout.setSpacing(8)
+
         header = QHBoxLayout()
         title = QLabel("Latest Analysis")
         title.setObjectName("CardTitle")
+        title.setStyleSheet("font-size: 15px;")
         header.addWidget(title)
         header.addStretch()
         if latest:
@@ -582,38 +712,53 @@ class HomePage(QWidget):
             empty.setObjectName("SubHeading")
             empty.setWordWrap(True)
             self._latest_layout.addWidget(empty)
+            self._latest_layout.addStretch()
             return
 
-        when = QLabel(datetime.fromisoformat(latest.timestamp).strftime("%b %d, %Y · %I:%M %p"))
+        when_row = QHBoxLayout()
+        when_row.setSpacing(6)
+        cal = QLabel()
+        cal.setPixmap(icon_pixmap("fa5.calendar-alt", muted_text_color(), size=12))
+        when_row.addWidget(cal)
+        when = QLabel(datetime.fromisoformat(latest.timestamp).strftime("%b %d, %Y  ·  %I:%M %p"))
         when.setObjectName("Muted")
-        self._latest_layout.addWidget(when)
+        when_row.addWidget(when)
+        when_row.addStretch()
+        self._latest_layout.addLayout(when_row)
+        self._latest_layout.addSpacing(4)
 
         body_row = QHBoxLayout()
+        body_row.setSpacing(16)
         diagram = _MiniFaceDiagram()
         levels = [getter(latest.analysis).level for _, getter in CATEGORIES]
         diagram.set_levels(levels)
-        body_row.addWidget(diagram)
+        body_row.addWidget(diagram, alignment=Qt.AlignmentFlag.AlignTop)
 
         list_col = QVBoxLayout()
-        list_col.setSpacing(6)
-        for (label, getter), level in zip(CATEGORIES, levels):
+        list_col.setSpacing(9)
+        for (label, _getter), level in zip(CATEGORIES, levels):
             row = QHBoxLayout()
+            row.setSpacing(8)
             dot = QLabel("●")
-            dot.setStyleSheet(f"color: {level_pill_colors(level)[1]};")
+            dot.setStyleSheet(f"color: {level_pill_colors(level)[1]}; font-size: 9px;")
             row.addWidget(dot)
             name = QLabel(label)
             row.addWidget(name, stretch=1)
             value = QLabel(level.title())
-            value.setStyleSheet(f"color: {level_pill_colors(level)[1]}; font-weight: 700; font-size: 11.5px;")
+            value.setStyleSheet(f"color: {level_pill_colors(level)[1]}; font-weight: 800; font-size: 12px;")
             row.addWidget(value)
             list_col.addLayout(row)
+        list_col.addStretch()
         body_row.addLayout(list_col, stretch=1)
         self._latest_layout.addLayout(body_row)
 
+        self._latest_layout.addSpacing(6)
         view_btn = QPushButton("View Full Analysis")
-        view_btn.setObjectName("Secondary")
+        view_btn.setObjectName("SoftButton")
+        view_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         view_btn.clicked.connect(lambda: self._on_view_scan(latest.id))
         self._latest_layout.addWidget(view_btn)
+        self._latest_layout.addStretch()
 
     def _build_badges_card(self, earned: list, all_badges: list) -> QFrame:
         card = QFrame()
@@ -625,22 +770,24 @@ class HomePage(QWidget):
         title.setObjectName("CardTitle")
         v.addWidget(title)
 
-        grid = QGridLayout()
-        grid.setSpacing(10)
-        columns = 5
-        for i, badge in enumerate(earned):
+        chips = QHBoxLayout()
+        chips.setSpacing(10)
+        for badge in earned:
             chip = QFrame()
-            chip.setObjectName("Card")
+            chip.setObjectName("TrustChips")
+            chip.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
             chip_row = QHBoxLayout(chip)
-            chip_row.setContentsMargins(10, 6, 10, 6)
+            chip_row.setContentsMargins(12, 7, 14, 7)
+            chip_row.setSpacing(8)
             icon_label = QLabel()
-            icon_label.setPixmap(icon_pixmap(badge.icon, icon_color("accent"), size=13))
+            icon_label.setPixmap(icon_pixmap(badge.icon, ORANGE_TEXT, size=13))
             chip_row.addWidget(icon_label)
             text = QLabel(badge.label)
-            text.setStyleSheet("font-size: 11px; font-weight: 700;")
+            text.setStyleSheet("font-size: 11.5px; font-weight: 700;")
             chip_row.addWidget(text)
-            grid.addWidget(chip, i // columns, i % columns)
-        v.addLayout(grid)
+            chips.addWidget(chip)
+        chips.addStretch()
+        v.addLayout(chips)
 
         next_badge = next((b for b in all_badges if not b.earned), None)
         if next_badge:

@@ -48,7 +48,7 @@ DEFAULT_SETTINGS = {
     "onboarding_complete": False,
 }
 
-ROUTINE_OPTIONS = ["Cleanser", "Moisturiser", "Sunscreen", "Other"]
+ROUTINE_OPTIONS = ["Cleanser", "Moisturiser", "Sunscreen", "Treatment", "Exfoliator", "Other"]
 ENVIRONMENT_OPTIONS = ["Travel", "Outdoor exposure", "High humidity", "Low humidity"]
 
 TRASH_RETENTION_DAYS = 30

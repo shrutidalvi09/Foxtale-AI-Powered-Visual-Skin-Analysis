@@ -6,6 +6,12 @@ scrollbars, tables) gets a custom look here so nothing falls back to the raw
 OS widget style.
 """
 
+from pathlib import Path
+
+_ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets"
+CHEVRON_LIGHT = (_ASSETS_DIR / "chevron_down_light.png").as_posix()
+CHEVRON_DARK = (_ASSETS_DIR / "chevron_down_dark.png").as_posix()
+
 NAVY = "#0b1224"
 FOX = "#e54a00"
 FOX_HOVER = "#ee5a10"
@@ -19,6 +25,12 @@ ACCENT = "#3b8dff"
 ACCENT_TEXT = "#2a6fe0"
 FOX_TEXT = "#9c3808"
 
+# Filled orange buttons carry white text: a slightly deeper shade of the brand
+# orange clears 4.5:1 against white (the exact brand #e54a00 is only 3.95:1).
+FOX_BUTTON = "#d43f00"
+FOX_BUTTON_HOVER = "#bf3800"
+ORANGE_TEXT = "#c2410c"
+
 LIGHT_QSS = f"""
 QWidget {{
     background-color: #ffffff;
@@ -27,6 +39,7 @@ QWidget {{
     font-size: 13px;
 }}
 QMainWindow {{ background-color: #ffffff; }}
+QLabel, QCheckBox, QRadioButton {{ background: transparent; }}
 QToolTip {{
     background-color: white;
     color: {NAVY};
@@ -53,7 +66,7 @@ QToolTip {{
 #SidebarButton:hover {{ background-color: #eef1f8; }}
 #SidebarButton[active="true"] {{
     background-color: #fff3ea;
-    color: {FOX_TEXT};
+    color: {ORANGE_TEXT};
 }}
 QFrame#ProfileCard {{
     background-color: #fff3ea;
@@ -64,17 +77,120 @@ QFrame#ProfileCard {{
 #Brand {{ font-size: 17px; font-weight: 800; }}
 #BrandTag {{ color: #6b7280; font-size: 10px; font-weight: 700; letter-spacing: 1px; }}
 
-QPushButton#Primary {{
-    background-color: {FOX};
-    color: {NAVY};
+QPushButton#Primary, QPushButton#Cta {{
+    background-color: {FOX_BUTTON};
+    color: white;
     border: none;
+    border-radius: 20px;
+    padding: 10px 22px;
+    min-height: 20px;
+    font-weight: 700;
+}}
+QPushButton#Cta {{
+    border-radius: 24px;
+    padding: 12px 28px;
+    min-height: 24px;
+    font-size: 14px;
+    font-weight: 800;
+}}
+QPushButton#Primary:hover, QPushButton#Cta:hover {{ background-color: {FOX_BUTTON_HOVER}; }}
+QPushButton#Primary:pressed, QPushButton#Cta:pressed {{ background-color: {FOX_BUTTON}; padding-top: 13px; padding-bottom: 11px; }}
+QPushButton#Primary:disabled, QPushButton#Cta:disabled {{ background-color: #f3c3a1; color: white; }}
+QPushButton#SoftButton {{
+    background-color: #fff1e7;
+    color: {ORANGE_TEXT};
+    border: none;
+    border-radius: 12px;
+    padding: 10px 16px;
+    font-weight: 800;
+}}
+QPushButton#SoftButton:hover {{ background-color: #ffe4d1; }}
+QPushButton#DangerButton {{
+    background-color: white;
+    color: #be123c;
+    border: 1px solid #f5c2c7;
     border-radius: 20px;
     padding: 10px 22px;
     font-weight: 700;
 }}
-QPushButton#Primary:hover {{ background-color: {FOX_HOVER}; }}
-QPushButton#Primary:pressed {{ background-color: {FOX}; padding-top: 11px; padding-bottom: 9px; }}
-QPushButton#Primary:disabled {{ background-color: #f3c3a1; color: #8a5a3a; }}
+QPushButton#DangerButton:hover {{ background-color: #fff1f2; border-color: #f0a3ad; }}
+QPushButton#IconButton {{ background: transparent; border: none; border-radius: 10px; padding: 8px; }}
+QPushButton#IconButton:hover {{ background-color: #f3f4f8; }}
+QPushButton#SortHeader {{
+    background: transparent;
+    border: none;
+    text-align: left;
+    padding: 6px 4px;
+    font-weight: 700;
+    color: #5a6478;
+}}
+QPushButton#SortHeader:hover {{ color: {ORANGE_TEXT}; }}
+QPushButton#PageButton {{
+    background-color: white;
+    color: {NAVY};
+    border: 1px solid #e2e5ee;
+    border-radius: 10px;
+    font-weight: 700;
+}}
+QPushButton#PageButton:hover:enabled {{ border-color: #ffc9a3; }}
+QPushButton#PageButton:checked {{ border: 1.5px solid {FOX}; color: {ORANGE_TEXT}; background-color: #fff8f3; }}
+QPushButton#PageButton:disabled {{ background-color: #f7f8fb; border-color: #eef0f5; }}
+QTabWidget#PageTabs::pane {{ border: none; padding: 0; top: 2px; }}
+QTabWidget#PageTabs QTabBar::tab {{
+    background: transparent;
+    color: #6b7280;
+    padding: 12px 20px;
+    margin-right: 6px;
+    border-radius: 0;
+    border-bottom: 3px solid transparent;
+    font-weight: 700;
+}}
+QTabWidget#PageTabs QTabBar::tab:selected {{ background: transparent; color: {ORANGE_TEXT}; border-bottom: 3px solid {FOX}; }}
+QTabWidget#PageTabs QTabBar::tab:hover:!selected {{ color: {NAVY}; }}
+QPushButton#ToggleChip {{
+    background-color: white;
+    color: {ORANGE_TEXT};
+    border: 1px solid #eceff5;
+    border-radius: 21px;
+    padding: 10px 20px;
+    min-height: 22px;
+    font-weight: 800;
+}}
+QPushButton#ToggleChip:hover {{ border-color: #ffc9a3; }}
+QPushButton#ToggleChip:checked {{ background-color: #fff1e7; border-color: {FOX}; }}
+QPushButton#RoutineChip {{
+    background-color: white;
+    color: {NAVY};
+    border: 1px solid #e7e9f0;
+    border-radius: 20px;
+    padding: 9px 16px;
+    min-height: 22px;
+    font-weight: 600;
+}}
+QPushButton#RoutineChip:hover {{ border-color: #ffc9a3; }}
+QPushButton#RoutineChip:checked {{ background-color: #fff1e7; border-color: {FOX}; color: {ORANGE_TEXT}; font-weight: 800; }}
+QPushButton#RoutineChip:disabled {{ background-color: #f7f8fb; color: #9aa3b8; border-color: #eef0f5; }}
+QPushButton#Secondary:disabled {{ color: #a3abbd; background-color: #f7f8fb; border-color: #eceff5; }}
+QLineEdit {{
+    background-color: white;
+    border: 1px solid #e2e5ee;
+    border-radius: 14px;
+    padding: 10px 14px;
+    min-height: 22px;
+    selection-background-color: #ffd9b8;
+}}
+QLineEdit:focus {{ border-color: {FOX}; }}
+QLineEdit:disabled {{ background-color: #f7f8fb; color: #9aa3b8; }}
+QFrame#TipPill {{
+    background-color: #fff1e7;
+    border: 1px solid #ffe1c2;
+    border-radius: 20px;
+}}
+QFrame#TrustChips {{
+    background-color: white;
+    border: 1px solid #f3e4d8;
+    border-radius: 14px;
+}}
 
 QPushButton#Secondary {{
     background-color: white;
@@ -98,20 +214,20 @@ QFrame#HeroPanel {{
     border: 1px solid #e7e9f0;
 }}
 QFrame#HeroGradient {{
-    border-radius: 20px;
-    background-color: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #fff3ea, stop:1 #ffffff);
+    border-radius: 22px;
+    background-color: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #fff6ef, stop:1 #ffe6d4);
     border: 1px solid #ffe1c2;
 }}
 QPushButton#LinkButton {{
     background: transparent;
     border: none;
-    color: {FOX_TEXT};
+    color: {ORANGE_TEXT};
     font-weight: 700;
     font-size: 11.5px;
     padding: 2px 0;
     text-align: left;
 }}
-QPushButton#LinkButton:hover {{ color: {FOX_HOVER}; }}
+QPushButton#LinkButton:hover {{ color: {FOX_BUTTON_HOVER}; }}
 QFrame#Disclaimer {{
     background-color: #fff3ea;
     border: 1px solid #ffd9b8;
@@ -151,6 +267,8 @@ QProgressBar::chunk {{
     border-radius: 6px;
     background-color: {FOX};
 }}
+QProgressBar#JourneyBar {{ background-color: #fde4d3; border-radius: 4px; }}
+QProgressBar#JourneyBar::chunk {{ border-radius: 4px; background-color: {FOX}; }}
 
 QComboBox {{
     background-color: white;
@@ -160,7 +278,8 @@ QComboBox {{
     min-height: 22px;
 }}
 QComboBox:hover {{ border-color: {ACCENT}; }}
-QComboBox::drop-down {{ border: none; width: 24px; }}
+QComboBox::drop-down {{ border: none; width: 32px; }}
+QComboBox::down-arrow {{ image: url({CHEVRON_LIGHT}); width: 12px; height: 12px; }}
 QComboBox QAbstractItemView {{
     background-color: white;
     border: 1px solid #e7e9f0;
@@ -327,6 +446,7 @@ QWidget {{
     font-size: 13px;
 }}
 QMainWindow {{ background-color: #0f1526; }}
+QLabel, QCheckBox, QRadioButton {{ background: transparent; }}
 QToolTip {{
     background-color: #1a2340;
     color: white;
@@ -364,17 +484,121 @@ QFrame#ProfileCard {{
 #Brand {{ font-size: 17px; font-weight: 800; color: white; }}
 #BrandTag {{ color: #7a86a8; font-size: 10px; font-weight: 700; letter-spacing: 1px; }}
 
-QPushButton#Primary {{
-    background-color: {FOX};
+QPushButton#Primary, QPushButton#Cta {{
+    background-color: {FOX_BUTTON};
     color: white;
     border: none;
     border-radius: 20px;
     padding: 10px 22px;
+    min-height: 20px;
     font-weight: 700;
 }}
-QPushButton#Primary:hover {{ background-color: {FOX_HOVER}; }}
-QPushButton#Primary:pressed {{ background-color: {FOX}; padding-top: 11px; padding-bottom: 9px; }}
-QPushButton#Primary:disabled {{ background-color: #5a4433; }}
+QPushButton#Cta {{
+    border-radius: 24px;
+    padding: 12px 28px;
+    min-height: 24px;
+    font-size: 14px;
+    font-weight: 800;
+}}
+QPushButton#Primary:hover, QPushButton#Cta:hover {{ background-color: {FOX_BUTTON_HOVER}; }}
+QPushButton#Primary:pressed, QPushButton#Cta:pressed {{ background-color: {FOX_BUTTON}; padding-top: 13px; padding-bottom: 11px; }}
+QPushButton#Primary:disabled, QPushButton#Cta:disabled {{ background-color: #5a4433; color: #d9c7b8; }}
+QPushButton#SoftButton {{
+    background-color: #2a1d10;
+    color: {FOX_HOVER};
+    border: none;
+    border-radius: 12px;
+    padding: 10px 16px;
+    font-weight: 800;
+}}
+QPushButton#SoftButton:hover {{ background-color: #35240f; }}
+QPushButton#DangerButton {{
+    background-color: #131b30;
+    color: #fda4af;
+    border: 1px solid #5b2331;
+    border-radius: 20px;
+    padding: 10px 22px;
+    font-weight: 700;
+}}
+QPushButton#DangerButton:hover {{ background-color: #2a1220; border-color: #8a3348; }}
+QPushButton#IconButton {{ background: transparent; border: none; border-radius: 10px; padding: 8px; }}
+QPushButton#IconButton:hover {{ background-color: #1a2340; }}
+QPushButton#SortHeader {{
+    background: transparent;
+    border: none;
+    text-align: left;
+    padding: 6px 4px;
+    font-weight: 700;
+    color: #9aa6c3;
+}}
+QPushButton#SortHeader:hover {{ color: {FOX_HOVER}; }}
+QPushButton#PageButton {{
+    background-color: #131b30;
+    color: #e7ecf7;
+    border: 1px solid #263457;
+    border-radius: 10px;
+    font-weight: 700;
+}}
+QPushButton#PageButton:hover:enabled {{ border-color: {FOX}; }}
+QPushButton#PageButton:checked {{ border: 1.5px solid {FOX}; color: {FOX_HOVER}; background-color: #2a1d10; }}
+QPushButton#PageButton:disabled {{ background-color: #0f1526; border-color: #1d2740; }}
+QTabWidget#PageTabs::pane {{ border: none; padding: 0; top: 2px; }}
+QTabWidget#PageTabs QTabBar::tab {{
+    background: transparent;
+    color: #7a86a8;
+    padding: 12px 20px;
+    margin-right: 6px;
+    border-radius: 0;
+    border-bottom: 3px solid transparent;
+    font-weight: 700;
+}}
+QTabWidget#PageTabs QTabBar::tab:selected {{ background: transparent; color: {FOX_HOVER}; border-bottom: 3px solid {FOX}; }}
+QTabWidget#PageTabs QTabBar::tab:hover:!selected {{ color: white; }}
+QPushButton#ToggleChip {{
+    background-color: #131b30;
+    color: {FOX_HOVER};
+    border: 1px solid #263457;
+    border-radius: 21px;
+    padding: 10px 20px;
+    min-height: 22px;
+    font-weight: 800;
+}}
+QPushButton#ToggleChip:hover {{ border-color: {FOX}; }}
+QPushButton#ToggleChip:checked {{ background-color: #2a1d10; border-color: {FOX}; }}
+QPushButton#RoutineChip {{
+    background-color: #131b30;
+    color: #e7ecf7;
+    border: 1px solid #263457;
+    border-radius: 20px;
+    padding: 9px 16px;
+    min-height: 22px;
+    font-weight: 600;
+}}
+QPushButton#RoutineChip:hover {{ border-color: {FOX}; }}
+QPushButton#RoutineChip:checked {{ background-color: #2a1d10; border-color: {FOX}; color: {FOX_HOVER}; font-weight: 800; }}
+QPushButton#RoutineChip:disabled {{ background-color: #0f1526; color: #56617f; border-color: #1d2740; }}
+QPushButton#Secondary:disabled {{ color: #56617f; background-color: #0f1526; border-color: #1d2740; }}
+QLineEdit {{
+    background-color: #131b30;
+    color: #e7ecf7;
+    border: 1px solid #263457;
+    border-radius: 14px;
+    padding: 10px 14px;
+    min-height: 22px;
+    selection-background-color: #55381a;
+}}
+QLineEdit:focus {{ border-color: {FOX}; }}
+QLineEdit:disabled {{ background-color: #0f1526; color: #56617f; }}
+QFrame#TipPill {{
+    background-color: #2a1d10;
+    border: 1px solid #55381a;
+    border-radius: 20px;
+}}
+QFrame#TrustChips {{
+    background-color: #131b30;
+    border: 1px solid #21294a;
+    border-radius: 14px;
+}}
 
 QPushButton#Secondary {{
     background-color: #131b30;
@@ -451,6 +675,8 @@ QProgressBar::chunk {{
     border-radius: 6px;
     background-color: {FOX};
 }}
+QProgressBar#JourneyBar {{ background-color: #2a1d10; border-radius: 4px; }}
+QProgressBar#JourneyBar::chunk {{ border-radius: 4px; background-color: {FOX}; }}
 
 QComboBox {{
     background-color: #131b30;
@@ -461,7 +687,8 @@ QComboBox {{
     min-height: 22px;
 }}
 QComboBox:hover {{ border-color: {ACCENT}; }}
-QComboBox::drop-down {{ border: none; width: 24px; }}
+QComboBox::drop-down {{ border: none; width: 32px; }}
+QComboBox::down-arrow {{ image: url({CHEVRON_DARK}); width: 12px; height: 12px; }}
 QComboBox QAbstractItemView {{
     background-color: #131b30;
     color: #e7ecf7;
@@ -694,7 +921,7 @@ _ICON_COLORS = {
     },
     "light": {
         "primary": FOX_TEXT, "accent": ACCENT_TEXT, "warning": FOX_TEXT,
-        "success": "#047857", "on_primary": NAVY,
+        "success": "#047857", "on_primary": "white",
     },
 }
 

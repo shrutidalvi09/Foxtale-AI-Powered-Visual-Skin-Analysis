@@ -5,12 +5,12 @@ from typing import List, Optional
 
 import cv2
 import numpy as np
-from PySide6.QtCore import QPointF, Qt, Signal
-from PySide6.QtGui import QColor, QImage, QPainter, QPen, QPixmap, QRadialGradient
+from PySide6.QtCore import QPointF, QRectF, Qt, Signal
+from PySide6.QtGui import QColor, QImage, QPainter, QPainterPath, QPen, QPixmap, QRadialGradient
 from PySide6.QtWidgets import QWidget
 
 from engine.schemas import RegionObservation
-from gui.theme import CATEGORY_QCOLOR, NAVY, muted_text_color
+from gui.theme import CATEGORY_QCOLOR
 
 MARKER_RADIUS = 8
 HIT_RADIUS = 14
@@ -54,36 +54,32 @@ class FaceReportView(QWidget):
     def paintEvent(self, event) -> None:  # noqa: N802
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        rect = self.rect()
-        side = min(rect.width(), rect.height())
-        square = rect.adjusted(
-            (rect.width() - side) // 2, (rect.height() - side) // 2,
-            -(rect.width() - side) // 2, -(rect.height() - side) // 2,
-        )
+        rect = QRectF(self.rect())
 
-        painter.setBrush(QColor(NAVY))
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.drawRoundedRect(square, 20, 20)
+        clip = QPainterPath()
+        clip.addRoundedRect(rect, 20, 20)
+        painter.setClipPath(clip)
+        painter.fillRect(rect, QColor("#0d1220"))
 
         self._marker_screen_pos = []
 
         if self._pixmap:
-            painter.save()
-            painter.setClipRect(square)
+            # Fit the whole photo (never crop a forehead or chin away) and
+            # letterbox it on the dark panel.
             scaled = self._pixmap.scaled(
-                square.size(), Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                rect.size().toSize(), Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation,
             )
-            x = square.x() - (scaled.width() - square.width()) // 2
-            y = square.y() - (scaled.height() - square.height()) // 2
+            x = int(rect.x() + (rect.width() - scaled.width()) / 2)
+            y = int(rect.y() + (rect.height() - scaled.height()) / 2)
             painter.drawPixmap(x, y, scaled)
-            painter.restore()
             self._image_rect = (x, y, scaled.width(), scaled.height())
+            photo_rect = QRectF(x, y, scaled.width(), scaled.height())
             visible = self._visible_regions()
 
             if self._heatmap_enabled:
                 painter.save()
-                painter.setClipRect(square)
+                painter.setClipRect(photo_rect)
                 for r in visible:
                     sx = x + int(r.x * scaled.width())
                     sy = y + int(r.y * scaled.height())
@@ -103,7 +99,7 @@ class FaceReportView(QWidget):
             for r in visible:
                 sx = x + int(r.x * scaled.width())
                 sy = y + int(r.y * scaled.height())
-                if not square.contains(sx, sy):
+                if not photo_rect.contains(sx, sy):
                     continue
                 color = QColor(CATEGORY_QCOLOR.get(r.category, "#3b8dff"))
                 painter.setPen(QPen(QColor("white"), 2))
@@ -111,8 +107,8 @@ class FaceReportView(QWidget):
                 painter.drawEllipse(sx - MARKER_RADIUS, sy - MARKER_RADIUS, MARKER_RADIUS * 2, MARKER_RADIUS * 2)
                 self._marker_screen_pos.append((sx, sy, r))
         else:
-            painter.setPen(QColor(muted_text_color()))
-            painter.drawText(square, Qt.AlignmentFlag.AlignCenter, "No captured image available")
+            painter.setPen(QColor("#b9bfd0"))
+            painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, "No captured image available")
 
         painter.end()
 
