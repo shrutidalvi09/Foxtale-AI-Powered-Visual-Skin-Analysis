@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
 from engine.quality import FrameStatus
 from gui.assets import apply_card_shadow, icon_pixmap
 from gui.core.camera_worker import CameraWorker, list_camera_indices
-from gui.theme import FOX, icon_color
+from gui.theme import FOX, NAVY, icon_color
 
 
 def _bgr_to_pixmap(frame: np.ndarray) -> QPixmap:
@@ -104,9 +104,9 @@ class CameraCanvas(QWidget):
             -(rect.width() - side) // 2, -(rect.height() - side) // 2,
         )
 
-        painter.setBrush(QColor("#0b1224"))
+        painter.setBrush(QColor(NAVY))
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.drawRoundedRect(square, 24, 24)
+        painter.drawRoundedRect(square, 26, 26)
 
         if self._pixmap:
             painter.save()
@@ -177,7 +177,7 @@ class CameraCanvas(QWidget):
         if self._countdown > 0:
             painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(QColor(11, 18, 36, 150))
-            painter.drawRoundedRect(square, 24, 24)
+            painter.drawRoundedRect(square, 26, 26)
             painter.setPen(QColor("white"))
             font = QFont()
             font.setPointSize(80)
@@ -208,7 +208,7 @@ class CameraView(QWidget):
         self.checklist_panel.setObjectName("Card")
         checklist_layout = QVBoxLayout(self.checklist_panel)
         checklist_title = QLabel("Standardised Scan Mode")
-        checklist_title.setStyleSheet("font-weight: 700;")
+        checklist_title.setObjectName("CardTitle")
         checklist_layout.addWidget(checklist_title)
         self._checklist_icons: dict[str, QLabel] = {}
         checklist_row = QHBoxLayout()

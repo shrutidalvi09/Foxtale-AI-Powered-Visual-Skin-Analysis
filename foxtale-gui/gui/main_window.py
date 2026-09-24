@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
 )
 
 from engine.schemas import AnalyzeResult
-from gui.assets import app_icon, brand_pixmap, icon as make_icon
+from gui.assets import app_icon, brand_pixmap, icon as make_icon, icon_pixmap
 from gui.core import app_lock, storage
 from gui.core.error_handling import LOG_DIR
 from gui.pages.about_page import AboutPage
@@ -21,14 +21,16 @@ from gui.pages.privacy_page import PrivacyPage
 from gui.pages.results_page import ResultsPage
 from gui.pages.scan_page import ScanPage
 from gui.pages.settings_page import SettingsPage
-from gui.theme import icon_color, set_current_theme, stylesheet_for
+from gui.theme import FOX, icon_color, muted_text_color, set_current_theme, stylesheet_for
+from gui.version import __version__
+from gui.widgets.command_palette import CommandPalette
 from gui.widgets.info_dialogs import AboutDialog, ShortcutsDialog
 from gui.widgets.lock_screen import LockScreen
 from gui.widgets.toast import Toast
 from gui.widgets.welcome_dialog import WelcomeDialog
 
 NAV_ITEMS = [
-    ("home", "Home", "fa5s.home"),
+    ("home", "Dashboard", "fa5s.home"),
     ("scan", "Scan", "fa5s.camera"),
     ("results", "Analysis", "fa5s.chart-bar"),
     ("history", "History", "fa5s.history"),
@@ -90,19 +92,65 @@ class MainWindow(QMainWindow):
         sb_layout.addSpacing(10)
 
         self._nav_buttons: dict[str, QPushButton] = {}
-        nav_icon_color = icon_color("primary")
+        self._nav_icons: dict[str, str] = {}
         for key, label, icon_name in NAV_ITEMS:
             btn = QPushButton(f"  {label}")
-            btn.setIcon(make_icon(icon_name, nav_icon_color))
+            btn.setIcon(make_icon(icon_name, muted_text_color()))
             btn.setIconSize(QSize(15, 15))
             btn.setObjectName("SidebarButton")
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             btn.clicked.connect(lambda _, k=key: self.navigate(k))
             sb_layout.addWidget(btn)
             self._nav_buttons[key] = btn
+            self._nav_icons[key] = icon_name
         sb_layout.addStretch()
 
-        version_label = QLabel("v1.0 · Desktop")
+        profile_card = QFrame()
+        profile_card.setObjectName("ProfileCard")
+        profile_row = QHBoxLayout(profile_card)
+        profile_row.setContentsMargins(12, 10, 12, 10)
+        profile_row.setSpacing(10)
+        avatar = QLabel()
+        avatar.setPixmap(brand_pixmap(26))
+        profile_row.addWidget(avatar)
+        profile_text_col = QVBoxLayout()
+        profile_text_col.setSpacing(0)
+        profile_name = QLabel("Fox")
+        profile_name.setStyleSheet("font-weight: 700; font-size: 12.5px;")
+        profile_text_col.addWidget(profile_name)
+        profile_sub = QLabel("Local Profile")
+        profile_sub.setObjectName("Muted")
+        profile_text_col.addWidget(profile_sub)
+        profile_row.addLayout(profile_text_col, 1)
+        sb_layout.addWidget(profile_card)
+
+        sb_layout.addSpacing(8)
+
+        help_card = QFrame()
+        help_card.setObjectName("Card")
+        help_card.setStyleSheet("margin: 0 10px;")
+        help_col = QVBoxLayout(help_card)
+        help_col.setContentsMargins(12, 10, 12, 10)
+        help_col.setSpacing(2)
+        help_row = QHBoxLayout()
+        help_icon = QLabel()
+        help_icon.setPixmap(icon_pixmap("fa5s.headset", icon_color("accent"), size=14))
+        help_row.addWidget(help_icon)
+        help_title = QLabel("Need help?")
+        help_title.setStyleSheet("font-weight: 700; font-size: 12px;")
+        help_row.addWidget(help_title)
+        help_row.addStretch()
+        help_col.addLayout(help_row)
+        shortcuts_link = QPushButton("Keyboard Shortcuts")
+        shortcuts_link.setObjectName("LinkButton")
+        shortcuts_link.setCursor(Qt.CursorShape.PointingHandCursor)
+        shortcuts_link.clicked.connect(self._show_shortcuts_dialog)
+        help_col.addWidget(shortcuts_link)
+        sb_layout.addWidget(help_card)
+
+        sb_layout.addSpacing(8)
+
+        version_label = QLabel(f"v{__version__} · Desktop")
         version_label.setObjectName("Muted")
         version_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         sb_layout.addWidget(version_label)
@@ -116,6 +164,7 @@ class MainWindow(QMainWindow):
             on_start_scan=lambda: self.navigate("scan"),
             on_view_scan=self._open_history_record,
             get_settings=lambda: self._settings,
+            on_navigate=self.navigate,
         )
         self.scan_page = ScanPage(
             get_settings=lambda: self._settings,
@@ -135,7 +184,7 @@ class MainWindow(QMainWindow):
             on_settings_changed=self._on_settings_changed,
             show_toast=self._toast,
         )
-        self.about_page = AboutPage()
+        self.about_page = AboutPage(on_replay_tour=self._show_welcome_dialog)
 
         self._pages = {
             "home": self.home_page,
@@ -160,6 +209,7 @@ class MainWindow(QMainWindow):
         self._inactivity_timer.setSingleShot(True)
         self._inactivity_timer.timeout.connect(self._on_inactivity_timeout)
         QApplication.instance().installEventFilter(self)
+        QApplication.instance().styleHints().colorSchemeChanged.connect(self._on_system_theme_changed)
 
         self._build_menu_bar()
         self._tray_hint_shown = False
@@ -290,7 +340,11 @@ class MainWindow(QMainWindow):
         exit_action.triggered.connect(self.close)
 
         view_menu = menu_bar.addMenu("&View")
-        home_action = view_menu.addAction("Home")
+        palette_action = view_menu.addAction("Command Palette")
+        palette_action.setShortcut(QKeySequence("Ctrl+K"))
+        palette_action.triggered.connect(self._open_command_palette)
+        view_menu.addSeparator()
+        home_action = view_menu.addAction("Dashboard")
         home_action.setShortcut(QKeySequence(Qt.Key.Key_Escape))
         home_action.triggered.connect(lambda: self.navigate("home"))
         for key, label, _icon in NAV_ITEMS:
@@ -318,6 +372,27 @@ class MainWindow(QMainWindow):
         storage.save_settings(self._settings)
         self.apply_theme(dialog.selected_theme)
 
+    def _open_command_palette(self) -> None:
+        commands = []
+        for key, label, _icon in NAV_ITEMS:
+            commands.append((f"Go to {label}", lambda k=key: self.navigate(k)))
+        commands.append(("New Scan", lambda: self.navigate("scan")))
+        commands.append(("Toggle Theme", self._toggle_theme))
+        if app_lock.has_pin():
+            commands.append(("Lock Now", self._lock))
+        commands.append(("Open Settings", lambda: self.navigate("settings")))
+        commands.append(("Open Log Folder", self._open_log_folder))
+        commands.append(("Keyboard Shortcuts", self._show_shortcuts_dialog))
+        commands.append(("About Foxtale", self._show_about_dialog))
+        CommandPalette(commands, parent=self).exec()
+
+    def _toggle_theme(self) -> None:
+        current = self._settings.get("theme", "light")
+        next_theme = "dark" if self._resolve_theme(current) == "light" else "light"
+        self._settings["theme"] = next_theme
+        storage.save_settings(self._settings)
+        self.apply_theme(next_theme)
+
     def _show_about_dialog(self) -> None:
         AboutDialog(parent=self).exec()
 
@@ -344,7 +419,9 @@ class MainWindow(QMainWindow):
 
         self.stack.setCurrentWidget(self._pages[key])
         for k, btn in self._nav_buttons.items():
-            btn.setProperty("active", "true" if k == key else "false")
+            active = k == key
+            btn.setProperty("active", "true" if active else "false")
+            btn.setIcon(make_icon(self._nav_icons[k], FOX if active else muted_text_color()))
             btn.style().unpolish(btn)
             btn.style().polish(btn)
 
@@ -376,7 +453,7 @@ class MainWindow(QMainWindow):
 
     def _on_delete_scan(self, scan_id: str) -> None:
         storage.delete_scan(scan_id)
-        self._toast("Scan deleted.")
+        self._toast("Moved to Recently Deleted.")
         self.navigate("scan")
 
     def _on_settings_changed(self, partial: dict) -> None:
@@ -385,11 +462,25 @@ class MainWindow(QMainWindow):
         self.apply_theme(self._settings.get("theme", "light"))
         self._reset_inactivity_timer()
 
+    def _resolve_theme(self, theme: str) -> str:
+        if theme != "auto":
+            return theme
+        app = QApplication.instance()
+        if not app:
+            return "light"
+        scheme = app.styleHints().colorScheme()
+        return "dark" if scheme == Qt.ColorScheme.Dark else "light"
+
     def apply_theme(self, theme: str) -> None:
-        set_current_theme(theme)
+        resolved = self._resolve_theme(theme)
+        set_current_theme(resolved)
         app = QApplication.instance()
         if app:
-            app.setStyleSheet(stylesheet_for(theme))
+            app.setStyleSheet(stylesheet_for(resolved))
+
+    def _on_system_theme_changed(self, *_args) -> None:
+        if self._settings.get("theme") == "auto":
+            self.apply_theme("auto")
 
     def _toast(self, message: str) -> None:
         self.toast.show_message(message)

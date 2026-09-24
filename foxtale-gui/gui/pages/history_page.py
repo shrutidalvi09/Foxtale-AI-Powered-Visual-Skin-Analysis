@@ -20,7 +20,7 @@ from gui.core import storage
 from gui.core.insights import compute_baseline, compute_insights
 from gui.core.report_export import build_progress_report
 from gui.core.storage import ScanRecord
-from gui.theme import icon_color, level_pill_colors
+from gui.theme import icon_color, pill_stylesheet
 from gui.widgets.trend_chart import TrendChart
 
 LEVEL_FILTER_OPTIONS = ["All levels", "Minimal", "Mild", "Moderate", "Noticeable"]
@@ -127,7 +127,7 @@ class HistoryPage(QWidget):
         apply_card_shadow(day_container)
         self.calendar_day_layout = QVBoxLayout(day_container)
         self.calendar_day_title = QLabel("Select a date")
-        self.calendar_day_title.setStyleSheet("font-weight: 700;")
+        self.calendar_day_title.setObjectName("CardTitle")
         self.calendar_day_layout.addWidget(self.calendar_day_title)
         self.calendar_day_rows = QVBoxLayout()
         self.calendar_day_layout.addLayout(self.calendar_day_rows)
@@ -159,7 +159,7 @@ class HistoryPage(QWidget):
         apply_card_shadow(today_card)
         today_v = QVBoxLayout(today_card)
         today_title = QLabel("Today's Routine")
-        today_title.setStyleSheet("font-weight: 700;")
+        today_title.setObjectName("CardTitle")
         today_v.addWidget(today_title)
         today_note = QLabel("What did you use today? Independent of scanning — helps spot patterns over time.")
         today_note.setObjectName("Muted")
@@ -181,7 +181,7 @@ class HistoryPage(QWidget):
         apply_card_shadow(streak_card)
         streak_v = QVBoxLayout(streak_card)
         streak_title = QLabel("Routine Streaks")
-        streak_title.setStyleSheet("font-weight: 700;")
+        streak_title.setObjectName("CardTitle")
         streak_v.addWidget(streak_title)
         self.routine_streak_layout = QVBoxLayout()
         streak_v.addLayout(self.routine_streak_layout)
@@ -192,7 +192,7 @@ class HistoryPage(QWidget):
         apply_card_shadow(log_card)
         log_v = QVBoxLayout(log_card)
         log_title = QLabel("Recent Log")
-        log_title.setStyleSheet("font-weight: 700;")
+        log_title.setObjectName("CardTitle")
         log_v.addWidget(log_title)
         self.routine_log_layout = QVBoxLayout()
         log_v.addLayout(self.routine_log_layout)
@@ -201,15 +201,80 @@ class HistoryPage(QWidget):
         routine_layout.addStretch()
         self.tabs.addTab(routine_tab, "Routine")
 
+        # --- recently deleted tab ---
+        trash_tab = QWidget()
+        trash_layout = QVBoxLayout(trash_tab)
+        trash_note = QLabel(
+            f"Deleted scans stay here for {storage.TRASH_RETENTION_DAYS} days before being "
+            "permanently removed."
+        )
+        trash_note.setObjectName("Muted")
+        trash_note.setWordWrap(True)
+        trash_layout.addWidget(trash_note)
+        self.trash_rows_layout = QVBoxLayout()
+        trash_layout.addLayout(self.trash_rows_layout)
+        trash_layout.addStretch()
+        self.tabs.addTab(trash_tab, "Recently Deleted")
+
         self.refresh()
 
     def refresh(self) -> None:
+        storage.purge_expired_trash()
         self._records = storage.list_scans()
         self._apply_filters()
         self.chart.plot(self._records)
         self._render_insights()
         self._mark_calendar_dates()
         self._render_routine()
+        self._render_trash()
+
+    def _render_trash(self) -> None:
+        while self.trash_rows_layout.count():
+            item = self.trash_rows_layout.takeAt(0)
+            if item.widget():
+                item.widget().hide()
+                item.widget().deleteLater()
+
+        trashed = storage.list_trashed_scans()
+        if not trashed:
+            empty = QLabel("Recently Deleted is empty.")
+            empty.setObjectName("Muted")
+            self.trash_rows_layout.addWidget(empty)
+            return
+
+        for record in trashed:
+            row = QFrame()
+            row.setObjectName("Card")
+            apply_card_shadow(row)
+            h = QHBoxLayout(row)
+            deleted_dt = datetime.fromisoformat(record.deleted_at)
+            days_left = max(0, storage.TRASH_RETENTION_DAYS - (datetime.now() - deleted_dt).days)
+            when = datetime.fromisoformat(record.timestamp).strftime("%b %d, %Y · %I:%M %p")
+            label = QLabel(f"{when}  —  {days_left} day(s) left")
+            h.addWidget(label, stretch=1)
+            restore_btn = QPushButton("Restore")
+            restore_btn.setObjectName("Secondary")
+            restore_btn.clicked.connect(lambda _, sid=record.id: self._restore_scan(sid))
+            h.addWidget(restore_btn)
+            forever_btn = QPushButton("Delete Forever")
+            forever_btn.setObjectName("Secondary")
+            forever_btn.clicked.connect(lambda _, sid=record.id: self._delete_forever(sid))
+            h.addWidget(forever_btn)
+            self.trash_rows_layout.addWidget(row)
+
+    def _restore_scan(self, scan_id: str) -> None:
+        storage.restore_scan(scan_id)
+        self._show_toast("Scan restored.")
+        self.refresh()
+
+    def _delete_forever(self, scan_id: str) -> None:
+        if QMessageBox.question(
+            self, "Delete forever", "This permanently removes this scan and its image. Continue?",
+        ) != QMessageBox.StandardButton.Yes:
+            return
+        storage.permanently_delete_scan(scan_id)
+        self._show_toast("Scan permanently deleted.")
+        self.refresh()
 
     def _on_routine_today_changed(self, *_args) -> None:
         today = date.today().isoformat()
@@ -352,7 +417,7 @@ class HistoryPage(QWidget):
         hv = QVBoxLayout(headline_card)
         headline_label = QLabel(result.headline)
         headline_label.setWordWrap(True)
-        headline_label.setStyleSheet("font-weight: 700; font-size: 14px;")
+        headline_label.setObjectName("CardTitle")
         hv.addWidget(headline_label)
         if result.total_scans:
             stats_bits = [f"{result.total_scans} scan(s)", f"{result.span_days} day span"]
@@ -369,7 +434,7 @@ class HistoryPage(QWidget):
             apply_card_shadow(trend_card)
             tv = QVBoxLayout(trend_card)
             title = QLabel("Per-category trend (first scans vs. most recent)")
-            title.setStyleSheet("font-weight: 700;")
+            title.setObjectName("CardTitle")
             tv.addWidget(title)
             for t in result.trends:
                 row = QHBoxLayout()
@@ -389,7 +454,7 @@ class HistoryPage(QWidget):
             apply_card_shadow(stats_card)
             sv = QVBoxLayout(stats_card)
             stats_title = QLabel("More Stats")
-            stats_title.setStyleSheet("font-weight: 700;")
+            stats_title.setObjectName("CardTitle")
             sv.addWidget(stats_title)
             advanced_rows = [
                 ("Scans analysed", str(result.total_scans)),
@@ -420,7 +485,7 @@ class HistoryPage(QWidget):
         apply_card_shadow(baseline_card)
         bv = QVBoxLayout(baseline_card)
         baseline_title = QLabel("Your Personal Baseline")
-        baseline_title.setStyleSheet("font-weight: 700;")
+        baseline_title.setObjectName("CardTitle")
         bv.addWidget(baseline_title)
         baseline_note = QLabel("Your most common visible level per category, across your own history.")
         baseline_note.setObjectName("Muted")
@@ -432,9 +497,8 @@ class HistoryPage(QWidget):
             name = QLabel(label)
             row.addWidget(name)
             row.addStretch()
-            bg, text = level_pill_colors(level)
             pill = QLabel(level.title())
-            pill.setStyleSheet(f"background-color: {bg}; color: {text}; border-radius: 8px; padding: 2px 10px; font-weight: 700;")
+            pill.setStyleSheet(pill_stylesheet(level))
             row.addWidget(pill)
             bv.addLayout(row)
         self.insights_layout.addWidget(baseline_card)
@@ -512,7 +576,7 @@ class HistoryPage(QWidget):
 
     def _delete_one(self, scan_id: str) -> None:
         storage.delete_scan(scan_id)
-        self._show_toast("Scan deleted.")
+        self._show_toast("Moved to Recently Deleted.")
         self.refresh()
 
     def _delete_all(self) -> None:

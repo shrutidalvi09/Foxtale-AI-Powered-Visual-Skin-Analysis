@@ -41,10 +41,10 @@ QToolTip {{
 }}
 #SidebarButton {{
     text-align: left;
-    padding: 11px 16px 11px 18px;
-    border-radius: 10px;
+    padding: 11px 16px;
+    margin: 0 10px;
+    border-radius: 12px;
     border: none;
-    border-left: 4px solid transparent;
     background: transparent;
     color: #33415c;
     font-weight: 600;
@@ -53,8 +53,13 @@ QToolTip {{
 #SidebarButton:hover {{ background-color: #eef1f8; }}
 #SidebarButton[active="true"] {{
     background-color: #fff3ea;
-    color: {NAVY};
-    border-left: 4px solid {FOX};
+    color: {FOX_TEXT};
+}}
+QFrame#ProfileCard {{
+    background-color: #fff3ea;
+    border: 1px solid #ffe1c2;
+    border-radius: 14px;
+    margin: 0 10px;
 }}
 #Brand {{ font-size: 17px; font-weight: 800; }}
 #BrandTag {{ color: #6b7280; font-size: 10px; font-weight: 700; letter-spacing: 1px; }}
@@ -63,7 +68,7 @@ QPushButton#Primary {{
     background-color: {FOX};
     color: {NAVY};
     border: none;
-    border-radius: 18px;
+    border-radius: 20px;
     padding: 10px 22px;
     font-weight: 700;
 }}
@@ -75,7 +80,7 @@ QPushButton#Secondary {{
     background-color: white;
     color: {NAVY};
     border: 1px solid #d9deeb;
-    border-radius: 18px;
+    border-radius: 20px;
     padding: 10px 22px;
     font-weight: 700;
 }}
@@ -85,17 +90,32 @@ QPushButton#Secondary:pressed {{ background-color: #eaf1ff; }}
 QFrame#Card {{
     background-color: white;
     border: 1px solid #eceff5;
-    border-radius: 14px;
+    border-radius: 16px;
 }}
 QFrame#HeroPanel {{
-    border-radius: 18px;
+    border-radius: 20px;
     background-color: #f7f9fc;
     border: 1px solid #e7e9f0;
 }}
+QFrame#HeroGradient {{
+    border-radius: 20px;
+    background-color: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #fff3ea, stop:1 #ffffff);
+    border: 1px solid #ffe1c2;
+}}
+QPushButton#LinkButton {{
+    background: transparent;
+    border: none;
+    color: {FOX_TEXT};
+    font-weight: 700;
+    font-size: 11.5px;
+    padding: 2px 0;
+    text-align: left;
+}}
+QPushButton#LinkButton:hover {{ color: {FOX_HOVER}; }}
 QFrame#Disclaimer {{
     background-color: #fff3ea;
     border: 1px solid #ffd9b8;
-    border-radius: 14px;
+    border-radius: 16px;
 }}
 QFrame#Divider {{ background-color: #eceff5; max-height: 1px; min-height: 1px; border: none; }}
 
@@ -110,6 +130,14 @@ QLabel#Badge {{
     padding: 4px 12px;
     font-weight: 800;
     font-size: 11px;
+}}
+QLabel#CardTitle {{ font-size: 14px; font-weight: 800; }}
+QLabel#ErrorBanner {{
+    background-color: #fdecec;
+    color: #b3261e;
+    border: 1px solid #f5c2c0;
+    border-radius: 12px;
+    padding: 10px;
 }}
 
 QProgressBar {{
@@ -127,7 +155,7 @@ QProgressBar::chunk {{
 QComboBox {{
     background-color: white;
     border: 1px solid #d9deeb;
-    border-radius: 10px;
+    border-radius: 12px;
     padding: 6px 10px;
     min-height: 22px;
 }}
@@ -159,7 +187,7 @@ QCheckBox::indicator:checked {{
 QRadioButton {{ spacing: 10px; font-weight: 600; padding: 2px 0; }}
 QRadioButton::indicator {{
     width: 19px; height: 19px;
-    border-radius: 10px;
+    border-radius: 12px;
     border: 2px solid #d9deeb;
     background: white;
 }}
@@ -197,8 +225,8 @@ QTabBar::tab {{
     background: transparent;
     padding: 8px 18px;
     margin-right: 4px;
-    border-top-left-radius: 10px;
-    border-top-right-radius: 10px;
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
     font-weight: 700;
     color: #6b7280;
 }}
@@ -212,7 +240,7 @@ QTabBar::tab:hover:!selected {{ color: {ACCENT_TEXT}; }}
 QTableWidget {{
     background: white;
     border: 1px solid #eceff5;
-    border-radius: 10px;
+    border-radius: 12px;
     gridline-color: #f0f2f7;
     selection-background-color: #fff0e3;
     selection-color: {NAVY};
@@ -251,6 +279,16 @@ QScrollBar::handle:horizontal {{
 }}
 QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{ width: 0px; }}
 
+QListWidget {{
+    background: white;
+    border: 1px solid #eceff5;
+    border-radius: 12px;
+    padding: 4px;
+    outline: none;
+}}
+QListWidget::item {{ padding: 8px 10px; border-radius: 6px; }}
+QListWidget::item:selected {{ background-color: #fff3ea; color: {NAVY}; }}
+
 QMessageBox {{ background-color: white; }}
 QDialog {{ background-color: white; }}
 
@@ -269,7 +307,7 @@ QMenuBar::item:selected {{ background-color: #fff3ea; color: {FOX_TEXT}; }}
 QMenu {{
     background-color: white;
     border: 1px solid #e7e9f0;
-    border-radius: 10px;
+    border-radius: 12px;
     padding: 6px;
 }}
 QMenu::item {{
@@ -303,10 +341,10 @@ QToolTip {{
 }}
 #SidebarButton {{
     text-align: left;
-    padding: 11px 16px 11px 18px;
-    border-radius: 10px;
+    padding: 11px 16px;
+    margin: 0 10px;
+    border-radius: 12px;
     border: none;
-    border-left: 4px solid transparent;
     background: transparent;
     color: #b7c1da;
     font-weight: 600;
@@ -315,8 +353,13 @@ QToolTip {{
 #SidebarButton:hover {{ background-color: #17203a; }}
 #SidebarButton[active="true"] {{
     background-color: #1a2340;
-    color: white;
-    border-left: 4px solid {FOX};
+    color: {FOX_HOVER};
+}}
+QFrame#ProfileCard {{
+    background-color: #1a2340;
+    border: 1px solid #2a3a63;
+    border-radius: 14px;
+    margin: 0 10px;
 }}
 #Brand {{ font-size: 17px; font-weight: 800; color: white; }}
 #BrandTag {{ color: #7a86a8; font-size: 10px; font-weight: 700; letter-spacing: 1px; }}
@@ -325,7 +368,7 @@ QPushButton#Primary {{
     background-color: {FOX};
     color: white;
     border: none;
-    border-radius: 18px;
+    border-radius: 20px;
     padding: 10px 22px;
     font-weight: 700;
 }}
@@ -337,7 +380,7 @@ QPushButton#Secondary {{
     background-color: #131b30;
     color: #e7ecf7;
     border: 1px solid #263457;
-    border-radius: 18px;
+    border-radius: 20px;
     padding: 10px 22px;
     font-weight: 700;
 }}
@@ -347,17 +390,32 @@ QPushButton#Secondary:pressed {{ background-color: #0f1730; }}
 QFrame#Card {{
     background-color: #131b30;
     border: 1px solid #21294a;
-    border-radius: 14px;
+    border-radius: 16px;
 }}
 QFrame#HeroPanel {{
-    border-radius: 18px;
+    border-radius: 20px;
     background-color: #131b30;
     border: 1px solid #21294a;
 }}
+QFrame#HeroGradient {{
+    border-radius: 20px;
+    background-color: #131b30;
+    border: 1px solid #21294a;
+}}
+QPushButton#LinkButton {{
+    background: transparent;
+    border: none;
+    color: {FOX_HOVER};
+    font-weight: 700;
+    font-size: 11.5px;
+    padding: 2px 0;
+    text-align: left;
+}}
+QPushButton#LinkButton:hover {{ color: {FOX}; }}
 QFrame#Disclaimer {{
     background-color: #2a1d10;
     border: 1px solid #55381a;
-    border-radius: 14px;
+    border-radius: 16px;
 }}
 QFrame#Divider {{ background-color: #21294a; max-height: 1px; min-height: 1px; border: none; }}
 
@@ -372,6 +430,14 @@ QLabel#Badge {{
     padding: 4px 12px;
     font-weight: 800;
     font-size: 11px;
+}}
+QLabel#CardTitle {{ font-size: 14px; font-weight: 800; color: white; }}
+QLabel#ErrorBanner {{
+    background-color: #3a1418;
+    color: #fda4af;
+    border: 1px solid #5c1f27;
+    border-radius: 12px;
+    padding: 10px;
 }}
 
 QProgressBar {{
@@ -390,7 +456,7 @@ QComboBox {{
     background-color: #131b30;
     color: #e7ecf7;
     border: 1px solid #263457;
-    border-radius: 10px;
+    border-radius: 12px;
     padding: 6px 10px;
     min-height: 22px;
 }}
@@ -423,7 +489,7 @@ QCheckBox::indicator:checked {{
 QRadioButton {{ spacing: 10px; font-weight: 600; padding: 2px 0; }}
 QRadioButton::indicator {{
     width: 19px; height: 19px;
-    border-radius: 10px;
+    border-radius: 12px;
     border: 2px solid #263457;
     background: #131b30;
 }}
@@ -461,8 +527,8 @@ QTabBar::tab {{
     background: transparent;
     padding: 8px 18px;
     margin-right: 4px;
-    border-top-left-radius: 10px;
-    border-top-right-radius: 10px;
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
     font-weight: 700;
     color: #7a86a8;
 }}
@@ -476,7 +542,7 @@ QTabBar::tab:hover:!selected {{ color: {ACCENT}; }}
 QTableWidget {{
     background: #131b30;
     border: 1px solid #21294a;
-    border-radius: 10px;
+    border-radius: 12px;
     gridline-color: #1d2740;
     color: #e7ecf7;
     selection-background-color: #1c2b52;
@@ -516,6 +582,17 @@ QScrollBar::handle:horizontal {{
 }}
 QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{ width: 0px; }}
 
+QListWidget {{
+    background: #131b30;
+    color: #e7ecf7;
+    border: 1px solid #21294a;
+    border-radius: 12px;
+    padding: 4px;
+    outline: none;
+}}
+QListWidget::item {{ padding: 8px 10px; border-radius: 6px; }}
+QListWidget::item:selected {{ background-color: #1a2340; color: {FOX_HOVER}; }}
+
 QMessageBox {{ background-color: #0f1526; }}
 QDialog {{ background-color: #0f1526; }}
 
@@ -534,7 +611,7 @@ QMenuBar::item:selected {{ background-color: #1a2340; color: {FOX_HOVER}; }}
 QMenu {{
     background-color: #131b30;
     border: 1px solid #21294a;
-    border-radius: 10px;
+    border-radius: 12px;
     padding: 6px;
 }}
 QMenu::item {{
@@ -625,3 +702,64 @@ _ICON_COLORS = {
 def icon_color(kind: str = "primary", theme: str | None = None) -> str:
     table = _ICON_COLORS["dark" if (theme or _current_theme) == "dark" else "light"]
     return table.get(kind, table["primary"])
+
+
+# Muted secondary-text color as a raw hex value, for the handful of spots
+# (rich-text HTML spans, matplotlib chrome) that can't use the QLabel#Muted
+# QSS class directly. Matches #Muted/#SubHeading's color in each theme.
+MUTED_LIGHT = "#6b7280"
+MUTED_DARK = "#7a86a8"
+
+
+def muted_text_color(theme: str | None = None) -> str:
+    return MUTED_DARK if (theme or _current_theme) == "dark" else MUTED_LIGHT
+
+
+def pill_stylesheet(level: str, theme: str | None = None) -> str:
+    """Inline stylesheet for a severity 'pill' badge, built on
+    level_pill_colors() so history/compare pages don't hand-roll the same
+    f-string in multiple places."""
+    bg, text = level_pill_colors(level, theme)
+    return (
+        f"background-color: {bg}; color: {text}; border-radius: 10px; "
+        "padding: 3px 10px; font-weight: 700;"
+    )
+
+
+# Comparison-delta text colors, tuned per theme the same way LEVEL_PILL_*
+# is: light mode needs deeper shades of the same hue to clear WCAG AA on
+# white, dark mode's background is dark enough that the vivid hues clear it
+# on their own.
+DELTA_COLORS_LIGHT = {
+    "improved": "#047857",
+    "worsened": "#be123c",
+    "unchanged": "#6b7280",
+}
+DELTA_COLORS_DARK = {
+    "improved": "#10b981",
+    "worsened": "#f43f5e",
+    "unchanged": "#8993a8",
+}
+
+
+def delta_color(direction: str, theme: str | None = None) -> str:
+    table = DELTA_COLORS_DARK if (theme or _current_theme) == "dark" else DELTA_COLORS_LIGHT
+    return table.get(direction, table["unchanged"])
+
+
+# Frosted-glass overlay tint + hairline border (RGBA tuples), used by the
+# Toast and LockScreen widgets to tint a blurred backdrop snapshot -- a
+# Qt-only approximation of acrylic/glassmorphism (QGraphicsBlurEffect over a
+# grabbed pixmap), no OS-level compositing APIs.
+GLASS_TINT_LIGHT = (255, 255, 255, 190)
+GLASS_TINT_DARK = (19, 27, 48, 195)
+GLASS_BORDER_LIGHT = (11, 18, 36, 20)
+GLASS_BORDER_DARK = (255, 255, 255, 26)
+
+
+def glass_tint(theme: str | None = None) -> tuple[int, int, int, int]:
+    return GLASS_TINT_DARK if (theme or _current_theme) == "dark" else GLASS_TINT_LIGHT
+
+
+def glass_border(theme: str | None = None) -> tuple[int, int, int, int]:
+    return GLASS_BORDER_DARK if (theme or _current_theme) == "dark" else GLASS_BORDER_LIGHT

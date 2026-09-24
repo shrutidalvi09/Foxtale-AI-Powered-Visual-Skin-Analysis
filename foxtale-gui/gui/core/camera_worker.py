@@ -5,6 +5,7 @@ listing available camera devices and a "burst capture" that grabs several
 frames and keeps the sharpest one.
 """
 
+import logging
 from collections import deque
 from typing import List, Optional, Tuple
 
@@ -15,6 +16,8 @@ from PySide6.QtCore import QThread, Signal
 from engine.face_detection import quick_face_check
 from engine.image_utils import mean_brightness, sharpness_score
 from engine.quality import FrameStatus, live_guidance, shadow_asymmetry
+
+logger = logging.getLogger(f"foxtale.{__name__}")
 
 FACE_CHECK_EVERY_N_FRAMES = 6
 EXPOSURE_STABILITY_WINDOW = 8
@@ -50,6 +53,19 @@ class CameraWorker(QThread):
         self._brightness_history: deque = deque(maxlen=EXPOSURE_STABILITY_WINDOW)
 
     def run(self) -> None:
+        try:
+            self._run_loop()
+        except Exception:
+            logger.exception("Camera worker crashed")
+            self.error.emit(
+                "The camera feed stopped unexpectedly. Try restarting the scan, or check "
+                "that no other app is using the camera."
+            )
+        finally:
+            if self._cap:
+                self._cap.release()
+
+    def _run_loop(self) -> None:
         self._cap = cv2.VideoCapture(self.camera_index, cv2.CAP_DSHOW)
         self._cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
         self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
@@ -97,9 +113,6 @@ class CameraWorker(QThread):
                 if self._burst_request == 0:
                     self._burst_result = max(self._burst_frames, key=sharpness_score)
                     self._burst_frames = []
-
-        if self._cap:
-            self._cap.release()
 
     def request_capture(self, burst_count: int = 5) -> None:
         """Ask the running loop to grab `burst_count` frames and keep the sharpest."""

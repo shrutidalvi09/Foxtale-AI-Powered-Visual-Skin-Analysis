@@ -10,7 +10,7 @@ import json
 import sqlite3
 import uuid
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List, Optional
 
@@ -51,6 +51,8 @@ DEFAULT_SETTINGS = {
 ROUTINE_OPTIONS = ["Cleanser", "Moisturiser", "Sunscreen", "Other"]
 ENVIRONMENT_OPTIONS = ["Travel", "Outdoor exposure", "High humidity", "Low humidity"]
 
+TRASH_RETENTION_DAYS = 30
+
 
 @dataclass
 class ScanRecord:
@@ -63,6 +65,7 @@ class ScanRecord:
     starred: bool = False
     quality: Optional[QualityResult] = None
     journal: dict = None  # {"routine": [...], "environment": [...]}
+    deleted_at: Optional[str] = None  # set when soft-deleted; None means active
 
     def __post_init__(self):
         if self.journal is None:
@@ -74,9 +77,13 @@ def _ensure_dirs() -> None:
     IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def _connect() -> sqlite3.Connection:
-    _ensure_dirs()
-    conn = sqlite3.connect(DB_PATH)
+def _add_column_if_missing(conn: sqlite3.Connection, table: str, column: str, ddl: str) -> None:
+    existing_cols = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
+    if column not in existing_cols:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {ddl}")
+
+
+def _migration_0(conn: sqlite3.Connection) -> None:
     conn.execute(
         """CREATE TABLE IF NOT EXISTS scans (
             id TEXT PRIMARY KEY,
@@ -86,23 +93,51 @@ def _connect() -> sqlite3.Connection:
             image_path TEXT
         )"""
     )
-    # Migrate older databases created before notes/starring existed.
-    existing_cols = {row[1] for row in conn.execute("PRAGMA table_info(scans)")}
-    if "note" not in existing_cols:
-        conn.execute("ALTER TABLE scans ADD COLUMN note TEXT NOT NULL DEFAULT ''")
-    if "starred" not in existing_cols:
-        conn.execute("ALTER TABLE scans ADD COLUMN starred INTEGER NOT NULL DEFAULT 0")
-    if "quality_json" not in existing_cols:
-        conn.execute("ALTER TABLE scans ADD COLUMN quality_json TEXT")
-    if "journal_json" not in existing_cols:
-        conn.execute("ALTER TABLE scans ADD COLUMN journal_json TEXT")
 
+
+def _migration_1(conn: sqlite3.Connection) -> None:
+    _add_column_if_missing(conn, "scans", "note", "note TEXT NOT NULL DEFAULT ''")
+    _add_column_if_missing(conn, "scans", "starred", "starred INTEGER NOT NULL DEFAULT 0")
+
+
+def _migration_2(conn: sqlite3.Connection) -> None:
+    _add_column_if_missing(conn, "scans", "quality_json", "quality_json TEXT")
+    _add_column_if_missing(conn, "scans", "journal_json", "journal_json TEXT")
+
+
+def _migration_3(conn: sqlite3.Connection) -> None:
+    _add_column_if_missing(conn, "scans", "deleted_at", "deleted_at TEXT")
+
+
+def _migration_4(conn: sqlite3.Connection) -> None:
     conn.execute(
         """CREATE TABLE IF NOT EXISTS routine_logs (
             date TEXT PRIMARY KEY,
             routine_json TEXT NOT NULL
         )"""
     )
+
+
+# Ordered schema steps, each safe to re-run (CREATE TABLE IF NOT EXISTS /
+# column-presence checks), tracked via `PRAGMA user_version` so a fully
+# migrated database skips straight past all of them on every later connect.
+# New schema changes are added as `_migration_N` and appended here.
+_MIGRATIONS = [_migration_0, _migration_1, _migration_2, _migration_3, _migration_4]
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    current = conn.execute("PRAGMA user_version").fetchone()[0]
+    for version in range(current, len(_MIGRATIONS)):
+        _MIGRATIONS[version](conn)
+    if current < len(_MIGRATIONS):
+        conn.execute(f"PRAGMA user_version = {len(_MIGRATIONS)}")
+
+
+def _connect() -> sqlite3.Connection:
+    _ensure_dirs()
+    conn = sqlite3.connect(DB_PATH)
+    with conn:
+        _migrate(conn)
     return conn
 
 
@@ -205,13 +240,14 @@ def save_scan(
 
 
 _SELECT_COLUMNS = (
-    "id, timestamp, analysis_json, regions_json, image_path, note, starred, quality_json, journal_json"
+    "id, timestamp, analysis_json, regions_json, image_path, note, starred, quality_json, "
+    "journal_json, deleted_at"
 )
 
 
 def _row_to_record(row) -> ScanRecord:
     (scan_id, timestamp, analysis_json, regions_json, image_path, note, starred,
-     quality_json, journal_json) = row
+     quality_json, journal_json, deleted_at) = row
     return ScanRecord(
         id=scan_id,
         timestamp=timestamp,
@@ -222,19 +258,32 @@ def _row_to_record(row) -> ScanRecord:
         starred=bool(starred),
         quality=QualityResult.from_dict(json.loads(quality_json)) if quality_json else None,
         journal=json.loads(journal_json) if journal_json else {"routine": [], "environment": []},
+        deleted_at=deleted_at,
     )
 
 
 def list_scans() -> List[ScanRecord]:
+    """Active (non-trashed) scans only -- see list_trashed_scans() for
+    scans currently in Recently Deleted."""
     conn = _connect()
     rows = conn.execute(
-        f"SELECT {_SELECT_COLUMNS} FROM scans ORDER BY timestamp DESC"
+        f"SELECT {_SELECT_COLUMNS} FROM scans WHERE deleted_at IS NULL ORDER BY timestamp DESC"
+    ).fetchall()
+    conn.close()
+    return [_row_to_record(r) for r in rows]
+
+
+def list_trashed_scans() -> List[ScanRecord]:
+    conn = _connect()
+    rows = conn.execute(
+        f"SELECT {_SELECT_COLUMNS} FROM scans WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC"
     ).fetchall()
     conn.close()
     return [_row_to_record(r) for r in rows]
 
 
 def get_scan(scan_id: str) -> Optional[ScanRecord]:
+    """Looks up a scan whether active or trashed."""
     conn = _connect()
     row = conn.execute(
         f"SELECT {_SELECT_COLUMNS} FROM scans WHERE id = ?",
@@ -269,6 +318,23 @@ def set_scan_journal(scan_id: str, routine: List[str], environment: List[str]) -
 
 
 def delete_scan(scan_id: str) -> None:
+    """Soft-delete: moves the scan to Recently Deleted rather than erasing
+    it immediately. The row and any saved image stay on disk until it's
+    restored or the retention window elapses (see purge_expired_trash)."""
+    conn = _connect()
+    with conn:
+        conn.execute("UPDATE scans SET deleted_at = ? WHERE id = ?", (datetime.now().isoformat(), scan_id))
+    conn.close()
+
+
+def restore_scan(scan_id: str) -> None:
+    conn = _connect()
+    with conn:
+        conn.execute("UPDATE scans SET deleted_at = NULL WHERE id = ?", (scan_id,))
+    conn.close()
+
+
+def permanently_delete_scan(scan_id: str) -> None:
     record = get_scan(scan_id)
     if record and record.image_path:
         Path(record.image_path).unlink(missing_ok=True)
@@ -278,11 +344,33 @@ def delete_scan(scan_id: str) -> None:
     conn.close()
 
 
-def delete_all_scans() -> None:
-    for record in list_scans():
-        if record.image_path:
-            Path(record.image_path).unlink(missing_ok=True)
+def purge_expired_trash() -> int:
+    """Permanently removes trashed scans older than TRASH_RETENTION_DAYS.
+    Called opportunistically (e.g. on History page refresh) since this is
+    a desktop app with no background process to run it on a timer."""
+    cutoff = datetime.now() - timedelta(days=TRASH_RETENTION_DAYS)
     conn = _connect()
+    rows = conn.execute("SELECT id, image_path, deleted_at FROM scans WHERE deleted_at IS NOT NULL").fetchall()
+    expired = [(rid, image_path) for rid, image_path, deleted_at in rows if datetime.fromisoformat(deleted_at) < cutoff]
+    for _, image_path in expired:
+        if image_path:
+            Path(image_path).unlink(missing_ok=True)
+    if expired:
+        with conn:
+            conn.executemany("DELETE FROM scans WHERE id = ?", [(rid,) for rid, _ in expired])
+    conn.close()
+    return len(expired)
+
+
+def delete_all_scans() -> None:
+    """A genuine, permanent wipe -- bypasses Recently Deleted entirely.
+    Used by explicit, already-confirmed bulk actions ("Delete All History",
+    the Privacy Dashboard's "Delete All Data")."""
+    conn = _connect()
+    rows = conn.execute("SELECT image_path FROM scans").fetchall()
+    for (image_path,) in rows:
+        if image_path:
+            Path(image_path).unlink(missing_ok=True)
     with conn:
         conn.execute("DELETE FROM scans")
     conn.close()
@@ -360,7 +448,9 @@ def export_history_csv(dest_path: str) -> int:
 def days_since_last_scan() -> Optional[int]:
     """None if there's no history yet."""
     conn = _connect()
-    row = conn.execute("SELECT timestamp FROM scans ORDER BY timestamp DESC LIMIT 1").fetchone()
+    row = conn.execute(
+        "SELECT timestamp FROM scans WHERE deleted_at IS NULL ORDER BY timestamp DESC LIMIT 1"
+    ).fetchone()
     conn.close()
     if not row:
         return None
@@ -395,7 +485,8 @@ def get_data_stats() -> dict:
     numbers, so the app's "nothing leaves this device" claim is verifiable
     rather than just asserted."""
     conn = _connect()
-    scan_count = conn.execute("SELECT COUNT(*) FROM scans").fetchone()[0]
+    scan_count = conn.execute("SELECT COUNT(*) FROM scans WHERE deleted_at IS NULL").fetchone()[0]
+    trashed_count = conn.execute("SELECT COUNT(*) FROM scans WHERE deleted_at IS NOT NULL").fetchone()[0]
     conn.close()
 
     image_files = list(IMAGES_DIR.glob("*.jpg")) if IMAGES_DIR.exists() else []
@@ -404,6 +495,7 @@ def get_data_stats() -> dict:
 
     return {
         "scan_count": scan_count,
+        "trashed_count": trashed_count,
         "image_count": len(image_files),
         "db_size_bytes": db_size,
         "images_size_bytes": images_size,

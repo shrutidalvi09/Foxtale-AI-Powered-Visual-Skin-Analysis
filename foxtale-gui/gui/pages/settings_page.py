@@ -60,7 +60,7 @@ class SettingsPage(QWidget):
         apply_card_shadow(frame)
         v = QVBoxLayout(frame)
         t = QLabel(title)
-        t.setStyleSheet("font-weight: 800; font-size: 14px;")
+        t.setObjectName("CardTitle")
         v.addWidget(t)
         return frame, v
 
@@ -163,6 +163,7 @@ class SettingsPage(QWidget):
         self.theme_combo = QComboBox()
         self.theme_combo.addItem("Light", "light")
         self.theme_combo.addItem("Dark", "dark")
+        self.theme_combo.addItem("Auto (matches system)", "auto")
         self.theme_combo.currentIndexChanged.connect(self._on_change)
         row.addWidget(self.theme_combo)
         row.addStretch()

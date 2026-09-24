@@ -24,7 +24,7 @@ class AnalysisCard(QFrame):
         layout.setSpacing(8)
 
         header = QLabel(title)
-        header.setStyleSheet("font-weight: 700; font-size: 13px;")
+        header.setObjectName("CardTitle")
         layout.addWidget(header)
 
         pill = QLabel(result.level.title())

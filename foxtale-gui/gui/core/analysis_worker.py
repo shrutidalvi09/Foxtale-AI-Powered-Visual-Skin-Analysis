@@ -1,5 +1,6 @@
 """QThread that runs face detection + region split + skin analysis off the UI thread."""
 
+import logging
 import time
 from typing import Optional
 
@@ -14,6 +15,8 @@ from engine.quality import compute_quality
 from engine.schemas import AnalyzeResult
 from engine.skin_analysis import analyze_face
 from gui.core import perf
+
+logger = logging.getLogger(f"foxtale.{__name__}")
 
 
 class AnalysisWorker(QThread):
@@ -33,6 +36,17 @@ class AnalysisWorker(QThread):
         self.min_confidence = min_confidence
 
     def run(self) -> None:
+        try:
+            self._analyze()
+        except Exception:
+            logger.exception("Analysis worker crashed")
+            self.finished_error.emit(AnalyzeResult(
+                face_detected=False,
+                error="analysis_failed",
+                message="Something went wrong while analyzing this photo. Please try again.",
+            ))
+
+    def _analyze(self) -> None:
         started = time.perf_counter()
         image = resize_max_dim(self.image_bgr, max_dim=900)
 

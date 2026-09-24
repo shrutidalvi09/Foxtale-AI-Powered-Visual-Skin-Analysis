@@ -14,20 +14,10 @@ from PySide6.QtWidgets import (
 from engine.schemas import LEVEL_SCORE
 from gui.assets import apply_card_shadow, icon_pixmap
 from gui.core import storage
-from gui.theme import get_current_theme, icon_color, level_pill_colors
+from gui.theme import delta_color, icon_color, muted_text_color, pill_stylesheet
 from gui.widgets.before_after_slider import BeforeAfterSlider
 
 STANDARD_REGIONS = ["FOREHEAD", "LEFT CHEEK", "RIGHT CHEEK", "NOSE", "CHIN"]
-
-# (light, dark) text colors -- the vivid base hues read at only ~2.5-3.7:1 on
-# a white background (verified by contrast calculation), so light mode gets
-# deeper shades of the same hue; dark mode's bg is dark enough that the vivid
-# hues already clear WCAG AA on their own.
-_DELTA_COLORS = {
-    "improved": ("#047857", "#10b981"),
-    "worsened": ("#be123c", "#f43f5e"),
-    "unchanged": ("#6b7280", "#8993a8"),
-}
 
 CATEGORIES = [
     ("Acne-like Spots", lambda a: a.acne_like_spots),
@@ -47,13 +37,13 @@ def _region_level(record, region_label: str) -> str:
 
 def _delta_text(a_level: str, b_level: str) -> tuple[str, str]:
     da, db = LEVEL_SCORE[a_level], LEVEL_SCORE[b_level]
-    light, dark = _DELTA_COLORS["unchanged"]
+    direction = "unchanged"
     label = "— Unchanged"
     if db < da:
-        label, (light, dark) = "▼ Improved", _DELTA_COLORS["improved"]
+        label, direction = "▼ Improved", "improved"
     elif db > da:
-        label, (light, dark) = "▲ Worsened", _DELTA_COLORS["worsened"]
-    return label, (dark if get_current_theme() == "dark" else light)
+        label, direction = "▲ Worsened", "worsened"
+    return label, delta_color(direction)
 
 
 class ComparePage(QWidget):
@@ -93,7 +83,7 @@ class ComparePage(QWidget):
         layout.addLayout(self.grid)
 
         region_title = QLabel("Facial Region Comparison")
-        region_title.setStyleSheet("font-weight: 700; font-size: 13px;")
+        region_title.setObjectName("CardTitle")
         layout.addWidget(region_title)
         region_note = QLabel(
             "Approximate — based on how many visible observations were flagged in each region, "
@@ -106,7 +96,7 @@ class ComparePage(QWidget):
         layout.addLayout(self.region_grid)
 
         slider_title = QLabel("Before / After Photo")
-        slider_title.setStyleSheet("font-weight: 700; font-size: 13px;")
+        slider_title.setObjectName("CardTitle")
         layout.addWidget(slider_title)
         slider_card = QFrame()
         slider_card.setObjectName("Card")
@@ -197,15 +187,12 @@ class ComparePage(QWidget):
     @staticmethod
     def _header_label(text: str) -> QLabel:
         lbl = QLabel(text)
-        lbl.setStyleSheet("font-weight: 800; color: #8993a8; font-size: 11px;")
+        lbl.setStyleSheet(f"font-weight: 800; color: {muted_text_color()}; font-size: 11px;")
         return lbl
 
     @staticmethod
     def _level_pill(level: str) -> QLabel:
-        bg, text = level_pill_colors(level)
         lbl = QLabel(level.title())
-        lbl.setStyleSheet(
-            f"background-color: {bg}; color: {text}; border-radius: 8px; padding: 3px 10px; font-weight: 700;"
-        )
+        lbl.setStyleSheet(pill_stylesheet(level))
         lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         return lbl

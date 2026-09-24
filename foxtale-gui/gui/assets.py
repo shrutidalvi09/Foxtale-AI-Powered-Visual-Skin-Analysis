@@ -65,7 +65,7 @@ def app_icon(size: int = 256) -> QIcon:
     rect = QRectF(border_w / 2, border_w / 2, size - border_w, size - border_w)
     painter.setBrush(QColor("white"))
     painter.setPen(QPen(QColor(FOX), border_w))
-    painter.drawRoundedRect(rect, size * 0.22, size * 0.22)
+    painter.drawRoundedRect(rect, size * 0.26, size * 0.26)
 
     mark = logo_mark_pixmap(int(size * 0.5))
     painter.drawPixmap(int((size - mark.width()) / 2), int((size - mark.height()) / 2), mark)
@@ -82,7 +82,7 @@ def splash_pixmap(width: int = 480, height: int = 320) -> QPixmap:
     rect = QRectF(1, 1, width - 2, height - 2)
     painter.setBrush(QColor("white"))
     painter.setPen(QPen(QColor("#e7e9f0"), 2))
-    painter.drawRoundedRect(rect, 18, 18)
+    painter.drawRoundedRect(rect, 20, 20)
 
     logo = logo_full_pixmap(150)
     painter.drawPixmap((width - logo.width()) // 2, 56, logo)
@@ -99,7 +99,7 @@ def splash_pixmap(width: int = 480, height: int = 320) -> QPixmap:
     return pixmap
 
 
-def apply_card_shadow(widget: QWidget, blur: int = 26, y_offset: int = 6, alpha: int = 35) -> None:
+def apply_card_shadow(widget: QWidget, blur: int = 30, y_offset: int = 8, alpha: int = 28) -> None:
     effect = QGraphicsDropShadowEffect(widget)
     effect.setBlurRadius(blur)
     effect.setOffset(0, y_offset)

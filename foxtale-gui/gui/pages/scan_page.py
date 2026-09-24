@@ -55,11 +55,8 @@ class ScanPage(QWidget):
         layout.addWidget(sub)
 
         self.error_banner = QLabel("")
+        self.error_banner.setObjectName("ErrorBanner")
         self.error_banner.setWordWrap(True)
-        self.error_banner.setStyleSheet(
-            "background-color: #fdecec; color: #b3261e; border: 1px solid #f5c2c0; "
-            "border-radius: 10px; padding: 10px;"
-        )
         self.error_banner.hide()
         layout.addWidget(self.error_banner)
 

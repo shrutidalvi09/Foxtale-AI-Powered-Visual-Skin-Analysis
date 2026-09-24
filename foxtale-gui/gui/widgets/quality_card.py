@@ -36,7 +36,7 @@ class QualityCard(QFrame):
         layout.setSpacing(8)
 
         header = QLabel("Scan Quality")
-        header.setStyleSheet("font-weight: 700; font-size: 13px;")
+        header.setObjectName("CardTitle")
         layout.addWidget(header)
 
         overall_row = QHBoxLayout()

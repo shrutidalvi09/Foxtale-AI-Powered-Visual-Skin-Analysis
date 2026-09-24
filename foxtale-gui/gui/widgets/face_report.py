@@ -10,7 +10,7 @@ from PySide6.QtGui import QColor, QImage, QPainter, QPen, QPixmap, QRadialGradie
 from PySide6.QtWidgets import QWidget
 
 from engine.schemas import RegionObservation
-from gui.theme import CATEGORY_QCOLOR
+from gui.theme import CATEGORY_QCOLOR, NAVY, muted_text_color
 
 MARKER_RADIUS = 8
 HIT_RADIUS = 14
@@ -61,9 +61,9 @@ class FaceReportView(QWidget):
             -(rect.width() - side) // 2, -(rect.height() - side) // 2,
         )
 
-        painter.setBrush(QColor("#0b1224"))
+        painter.setBrush(QColor(NAVY))
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.drawRoundedRect(square, 18, 18)
+        painter.drawRoundedRect(square, 20, 20)
 
         self._marker_screen_pos = []
 
@@ -111,7 +111,7 @@ class FaceReportView(QWidget):
                 painter.drawEllipse(sx - MARKER_RADIUS, sy - MARKER_RADIUS, MARKER_RADIUS * 2, MARKER_RADIUS * 2)
                 self._marker_screen_pos.append((sx, sy, r))
         else:
-            painter.setPen(QColor("#8993a8"))
+            painter.setPen(QColor(muted_text_color()))
             painter.drawText(square, Qt.AlignmentFlag.AlignCenter, "No captured image available")
 
         painter.end()

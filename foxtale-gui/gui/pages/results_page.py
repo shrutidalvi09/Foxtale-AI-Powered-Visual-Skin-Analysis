@@ -20,7 +20,7 @@ from gui.core.insights import compute_baseline
 from gui.core.recommendations import build_recommendations
 from gui.core.report_export import build_pdf_report, build_summary_card_image, save_annotated_image
 from gui.core.storage import ScanRecord
-from gui.theme import CATEGORY_QCOLOR, icon_color
+from gui.theme import CATEGORY_QCOLOR, icon_color, muted_text_color
 from gui.widgets.analysis_card import AnalysisCard
 from gui.widgets.disclaimer import DisclaimerBanner
 from gui.widgets.face_report import FaceReportView
@@ -131,7 +131,7 @@ class ResultsPage(QWidget):
         apply_card_shadow(self.detail_panel)
         self.detail_layout = QVBoxLayout(self.detail_panel)
         self.detail_title = QLabel("Visible observation")
-        self.detail_title.setStyleSheet("font-weight: 700;")
+        self.detail_title.setObjectName("CardTitle")
         self.detail_body = QLabel("Click a marker on the photo to see details.")
         self.detail_body.setWordWrap(True)
         self.detail_layout.addWidget(self.detail_title)
@@ -143,7 +143,7 @@ class ResultsPage(QWidget):
         apply_card_shadow(self.regions_panel)
         self.regions_layout = QVBoxLayout(self.regions_panel)
         regions_title = QLabel("Region Breakdown")
-        regions_title.setStyleSheet("font-weight: 700;")
+        regions_title.setObjectName("CardTitle")
         self.regions_layout.addWidget(regions_title)
         self.regions_body = QVBoxLayout()
         self.regions_layout.addLayout(self.regions_body)
@@ -157,7 +157,7 @@ class ResultsPage(QWidget):
         apply_card_shadow(self.notes_panel)
         notes_layout = QVBoxLayout(self.notes_panel)
         notes_title = QLabel("Notes")
-        notes_title.setStyleSheet("font-weight: 700; font-size: 14px;")
+        notes_title.setObjectName("CardTitle")
         notes_layout.addWidget(notes_title)
         notes_row = QHBoxLayout()
         self.notes_edit = QLineEdit()
@@ -180,7 +180,7 @@ class ResultsPage(QWidget):
         apply_card_shadow(self.journal_panel)
         journal_layout = QVBoxLayout(self.journal_panel)
         journal_title = QLabel("Scan Journal")
-        journal_title.setStyleSheet("font-weight: 700; font-size: 14px;")
+        journal_title.setObjectName("CardTitle")
         journal_layout.addWidget(journal_title)
 
         routine_label = QLabel("Routine")
@@ -215,7 +215,7 @@ class ResultsPage(QWidget):
         apply_card_shadow(self.reco_panel)
         reco_layout = QVBoxLayout(self.reco_panel)
         reco_title = QLabel("Recommendations")
-        reco_title.setStyleSheet("font-weight: 700; font-size: 14px;")
+        reco_title.setObjectName("CardTitle")
         reco_layout.addWidget(reco_title)
         self.reco_body = QVBoxLayout()
         reco_layout.addLayout(self.reco_body)
@@ -344,7 +344,7 @@ class ResultsPage(QWidget):
         else:
             for region, obs_list in grouped.items():
                 region_label = QLabel(region)
-                region_label.setStyleSheet("font-weight: 700; font-size: 10.5px; color: #8993a8;")
+                region_label.setStyleSheet(f"font-weight: 700; font-size: 10.5px; color: {muted_text_color()};")
                 self.regions_body.addWidget(region_label)
                 for o in obs_list:
                     color = CATEGORY_QCOLOR.get(o.category, "#3b8dff")
@@ -366,7 +366,7 @@ class ResultsPage(QWidget):
             f"<b>Area:</b> {region.region}<br>"
             f"<b>Observation:</b> {region.observation}<br>"
             f"<b>Confidence:</b> {int(region.confidence * 100)}%<br><br>"
-            "<span style='color:#8993a8; font-size: 10.5px;'>This is a visual observation "
+            f"<span style='color:{muted_text_color()}; font-size: 10.5px;'>This is a visual observation "
             "and does not establish a medical diagnosis.</span>"
         )
 

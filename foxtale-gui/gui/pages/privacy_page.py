@@ -113,7 +113,7 @@ class PrivacyPage(QWidget):
         apply_card_shadow(frame)
         v = QVBoxLayout(frame)
         t = QLabel(title)
-        t.setStyleSheet("font-weight: 800; font-size: 14px;")
+        t.setObjectName("CardTitle")
         v.addWidget(t)
         return frame, v
 
@@ -144,6 +144,7 @@ class PrivacyPage(QWidget):
         stats = storage.get_data_stats()
         rows = [
             ("Scan records", str(stats["scan_count"])),
+            ("Recently deleted", f'{stats["trashed_count"]} (kept {storage.TRASH_RETENTION_DAYS} days)'),
             ("Saved images", str(stats["image_count"])),
             ("Database size", _format_bytes(stats["db_size_bytes"])),
             ("Images size", _format_bytes(stats["images_size_bytes"])),

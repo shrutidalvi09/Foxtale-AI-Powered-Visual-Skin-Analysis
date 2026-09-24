@@ -13,6 +13,8 @@ from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QFont, QImage, QMouseEvent, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QWidget
 
+from gui.theme import NAVY, muted_text_color
+
 
 def _bgr_to_square_pixmap(frame: np.ndarray, size: int = 480) -> QPixmap:
     h, w = frame.shape[:2]
@@ -77,12 +79,12 @@ class BeforeAfterSlider(QWidget):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         square = self._square_rect()
 
-        painter.setBrush(QColor("#0b1224"))
+        painter.setBrush(QColor(NAVY))
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.drawRoundedRect(square, 14, 14)
+        painter.drawRoundedRect(square, 16, 16)
 
         if not self._before or not self._after:
-            painter.setPen(QColor("#8993a8"))
+            painter.setPen(QColor(muted_text_color()))
             painter.drawText(square, Qt.AlignmentFlag.AlignCenter, "Both scans need a saved photo\nto compare visually.")
             painter.end()
             return

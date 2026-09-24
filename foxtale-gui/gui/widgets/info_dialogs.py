@@ -7,6 +7,7 @@ from gui.assets import logo_full_pixmap
 from gui.pages.about_page import ENGINE_INFO_ROWS
 
 SHORTCUTS = [
+    ("Command Palette", "Ctrl+K"),
     ("New Scan", "Ctrl+N"),
     ("Open Settings", "Ctrl+,"),
     ("Open History", "Ctrl+H"),

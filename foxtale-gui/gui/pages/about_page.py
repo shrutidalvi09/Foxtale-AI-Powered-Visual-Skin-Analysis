@@ -1,16 +1,19 @@
 import cv2
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QFrame, QGridLayout, QHBoxLayout, QLabel, QMessageBox, QPushButton, QVBoxLayout, QWidget,
+)
 
 from gui.assets import apply_card_shadow, icon_pixmap, logo_mark_pixmap
 from gui.theme import icon_color
+from gui.version import __version__
 from gui.widgets.disclaimer import DisclaimerBanner
 
 ENGINE_INFO_ROWS = [
     ("Face detector", "OpenCV Haar Cascade (frontalface_default)"),
     ("Analysis engine", "Rule-based image heuristics, v1.0"),
     ("OpenCV version", cv2.__version__),
-    ("App version", "1.0 · Desktop"),
+    ("App version", f"{__version__} · Desktop"),
 ]
 
 CARDS = [
@@ -24,8 +27,9 @@ CARDS = [
 
 
 class AboutPage(QWidget):
-    def __init__(self, parent=None):
+    def __init__(self, on_replay_tour=None, parent=None):
         super().__init__(parent)
+        self._on_replay_tour = on_replay_tour
         layout = QVBoxLayout(self)
         layout.setContentsMargins(36, 28, 36, 28)
         layout.setSpacing(16)
@@ -62,7 +66,7 @@ class AboutPage(QWidget):
             icon_label.setPixmap(icon_pixmap(icon_name, card_icon_color, size=20))
             v.addWidget(icon_label)
             t = QLabel(title)
-            t.setStyleSheet("font-weight: 700;")
+            t.setObjectName("CardTitle")
             v.addWidget(t)
             b = QLabel(body)
             b.setWordWrap(True)
@@ -72,8 +76,41 @@ class AboutPage(QWidget):
         layout.addLayout(grid)
 
         layout.addWidget(self._engine_card())
+
+        actions_row = QHBoxLayout()
+        actions_row.setSpacing(10)
+        replay_btn = QPushButton("Replay Welcome Tour")
+        replay_btn.setObjectName("Secondary")
+        replay_btn.setAccessibleName("Replay Welcome Tour")
+        replay_btn.clicked.connect(self._replay_tour)
+        actions_row.addWidget(replay_btn)
+        update_btn = QPushButton("Check for Updates")
+        update_btn.setObjectName("Secondary")
+        update_btn.setAccessibleName("Check for Updates")
+        update_btn.clicked.connect(self._check_for_updates)
+        actions_row.addWidget(update_btn)
+        actions_row.addStretch()
+        layout.addLayout(actions_row)
+
         layout.addWidget(DisclaimerBanner())
         layout.addStretch()
+
+    def _replay_tour(self) -> None:
+        if self._on_replay_tour:
+            self._on_replay_tour()
+
+    def _check_for_updates(self) -> None:
+        # Deliberately local-only: Foxtale makes no network calls, ever (see
+        # the Privacy page), so this doesn't reach out anywhere -- it just
+        # confirms the version you're running rather than silently phoning
+        # home to check for a newer one.
+        QMessageBox.information(
+            self,
+            "Check for Updates",
+            f"You're running Foxtale Desktop v{__version__}.\n\n"
+            "This app doesn't make network calls, so it can't check for updates "
+            "automatically. Get newer builds the same way you got this one.",
+        )
 
     def _engine_card(self) -> QFrame:
         frame = QFrame()
@@ -81,7 +118,7 @@ class AboutPage(QWidget):
         apply_card_shadow(frame)
         v = QVBoxLayout(frame)
         title = QLabel("Engine & Model")
-        title.setStyleSheet("font-weight: 800; font-size: 14px;")
+        title.setObjectName("CardTitle")
         v.addWidget(title)
         for label, value in ENGINE_INFO_ROWS:
             row = QHBoxLayout()

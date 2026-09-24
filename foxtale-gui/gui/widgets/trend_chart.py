@@ -10,7 +10,14 @@ from matplotlib.figure import Figure
 
 from engine.schemas import LEVEL_SCORE
 from gui.core.storage import ScanRecord
-from gui.theme import CATEGORY_QCOLOR
+from gui.theme import CATEGORY_QCOLOR, get_current_theme, muted_text_color
+
+# Matplotlib chrome (spines/ticks/labels) doesn't inherit Qt's QSS theme, so
+# it's synced to the active theme by hand here.
+_AXIS_COLORS = {
+    "light": {"text": "#33415c", "spine": "#d9deeb"},
+    "dark": {"text": "#e7ecf7", "spine": "#263457"},
+}
 
 SERIES = [
     ("Acne-like spots", lambda a: a.acne_like_spots),
@@ -29,20 +36,25 @@ class TrendChart(FigureCanvasQTAgg):
         self._style_axes()
 
     def _style_axes(self) -> None:
+        palette = _AXIS_COLORS["dark" if get_current_theme() == "dark" else "light"]
         self.ax.set_ylim(-0.4, 3.4)
         self.ax.set_yticks([0, 1, 2, 3])
         self.ax.set_yticklabels(["Minimal", "Mild", "Moderate", "Noticeable"])
         self.ax.spines[["top", "right"]].set_visible(False)
+        for spine in ("left", "bottom"):
+            self.ax.spines[spine].set_color(palette["spine"])
+        self.ax.tick_params(colors=palette["text"], labelcolor=palette["text"])
         self.fig.patch.set_alpha(0)
         self.ax.patch.set_alpha(0)
 
     def plot(self, records: List[ScanRecord]) -> None:
         self.ax.clear()
         self._style_axes()
+        palette = _AXIS_COLORS["dark" if get_current_theme() == "dark" else "light"]
 
         if len(records) < 2:
             self.ax.text(0.5, 0.5, "Need at least 2 scans to show a trend", ha="center", va="center",
-                         transform=self.ax.transAxes, color="#8993a8")
+                         transform=self.ax.transAxes, color=muted_text_color())
             self.draw()
             return
 
@@ -55,6 +67,8 @@ class TrendChart(FigureCanvasQTAgg):
             self.ax.plot(x, y, marker="o", label=label, color=CATEGORY_QCOLOR.get(label, "#3b8dff"), linewidth=2)
 
         self.ax.set_xticks(x)
-        self.ax.set_xticklabels(x_labels, rotation=30, ha="right", fontsize=8)
-        self.ax.legend(loc="upper left", fontsize=8, frameon=False)
+        self.ax.set_xticklabels(x_labels, rotation=30, ha="right", fontsize=8, color=palette["text"])
+        legend = self.ax.legend(loc="upper left", fontsize=8, frameon=False)
+        for text in legend.get_texts():
+            text.set_color(palette["text"])
         self.draw()
