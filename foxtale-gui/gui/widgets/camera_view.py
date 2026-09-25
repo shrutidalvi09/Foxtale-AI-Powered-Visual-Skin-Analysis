@@ -24,6 +24,7 @@ from gui.core.camera_worker import CameraWorker, list_camera_indices
 from gui.theme import FOX, ORANGE_TEXT, get_current_theme, icon_color, muted_text_color
 
 CANVAS_RADIUS = 22
+MAX_CANVAS_HEIGHT = 540
 SINGLE_ROW_CONTROLS_FROM = 800  # camera-column width from which the buttons sit beside the combos
 
 
@@ -50,6 +51,7 @@ class CameraCanvas(QWidget):
         self._guidance = "Position your face inside the frame"
         self._phase = 0.0
         self._countdown = 0
+        self._message = ""
 
         self._timer = QTimer(self)
         self._timer.setInterval(35)
@@ -67,7 +69,8 @@ class CameraCanvas(QWidget):
         return True
 
     def heightForWidth(self, width: int) -> int:  # noqa: N802 (Qt override)
-        return int(width * self.ASPECT)
+        # Capped so the controls below stay on screen in a large or maximized window.
+        return min(int(width * self.ASPECT), MAX_CANVAS_HEIGHT)
 
     def sizeHint(self) -> QSize:  # noqa: N802 (Qt override)
         return QSize(640, int(640 * self.ASPECT))
@@ -80,6 +83,15 @@ class CameraCanvas(QWidget):
     @property
     def is_counting_down(self) -> bool:
         return self._countdown > 0
+
+    def set_message(self, message: str) -> None:
+        self._message = message
+        self.update()
+
+    def cancel_countdown(self) -> None:
+        self._countdown = 0
+        self._countdown_timer.stop()
+        self.update()
 
     def start_countdown(self, seconds: int) -> None:
         self._countdown = seconds
@@ -240,6 +252,17 @@ class CameraCanvas(QWidget):
         fill_rect = QRectF(meter_rect.left(), meter_rect.top(), meter_rect.width() * fill_ratio, meter_rect.height())
         painter.setBrush(QColor("#22c55e") if self._brightness >= 60 else QColor("#f97316"))
         painter.drawRoundedRect(fill_rect, 5, 5)
+
+        if self._message:
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QColor(11, 18, 36, 130))
+            painter.drawRect(rect)
+            font = QFont(painter.font())
+            font.setPointSizeF(13)
+            font.setBold(True)
+            painter.setFont(font)
+            painter.setPen(QColor("white"))
+            painter.drawText(rect, Qt.AlignmentFlag.AlignCenter, self._message)
 
         if self._countdown > 0:
             painter.setPen(Qt.PenStyle.NoPen)
@@ -459,10 +482,16 @@ class CameraView(QWidget):
         width, height = self.resolution_combo.currentData() or (1280, 720)
 
         self._face_steady_since = None
+        if self.worker:  # never leave an old capture thread running behind a new one
+            self.worker.stop()
+            self.worker = None
         self.worker = CameraWorker(camera_index=index, width=width, height=height)
         self.worker.frame_ready.connect(self.canvas.set_live_frame)
         self.worker.status_ready.connect(self._on_status)
         self.worker.error.connect(self._on_error)
+        self.worker.ready.connect(self._on_camera_ready)
+        self.capture_btn.setEnabled(False)  # locked until the picture has warmed up
+        self.canvas.set_message("Starting camera\u2026")
         self.worker.start()
 
         self.start_btn.setVisible(False)
@@ -471,6 +500,10 @@ class CameraView(QWidget):
         self.retake_btn.setVisible(False)
         self.device_combo.setEnabled(False)
         self.resolution_combo.setEnabled(False)
+
+    def _on_camera_ready(self) -> None:
+        self.canvas.set_message("")
+        self.capture_btn.setEnabled(True)
 
     def _on_status(self, status: FrameStatus) -> None:
         self.canvas.set_status(status.face_detected, status.brightness, status.guidance)
@@ -513,10 +546,15 @@ class CameraView(QWidget):
             icon_lbl.setPixmap(icon_pixmap(icon_name, color, size=13))
 
     def stop_camera(self) -> None:
+        if self._burst_timer is not None:
+            self._burst_timer.stop()
+        self.canvas.cancel_countdown()
+        self.canvas.set_message("")
         if self.worker:
             self.worker.stop()
             self.worker = None
         self._face_steady_since = None
+        self.capture_btn.setEnabled(True)
         self.canvas.clear()
         self.rail.reset()
         self.start_btn.setVisible(True)
@@ -593,6 +631,19 @@ class CameraView(QWidget):
         self.canvas.clear()
         self.retake_btn.setVisible(False)
         self.start_camera()
+
+    def reset_to_idle(self) -> None:
+        """Camera off, nothing captured -- the state the Scan page always opens in."""
+        self._captured_frame = None
+        self.stop_camera()
+        self.retake_btn.setVisible(False)
+
+    def is_running(self) -> bool:
+        return self.worker is not None
+
+    def is_live(self) -> bool:
+        """True while the camera is running and a capture can be taken."""
+        return self.worker is not None and self.capture_btn.isVisible() and self.capture_btn.isEnabled()
 
     def current_frame(self) -> Optional[np.ndarray]:
         return self._captured_frame

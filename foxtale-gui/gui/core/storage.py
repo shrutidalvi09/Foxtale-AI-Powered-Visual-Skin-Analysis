@@ -46,6 +46,7 @@ DEFAULT_SETTINGS = {
     "camera_profiles": [],  # [{"name", "index", "width", "height"}, ...]
     "window_geometry": None,  # {"x", "y", "w", "h", "maximized"} or None
     "onboarding_complete": False,
+    "owned_products": [],  # skincare product ids the user marked "I already use this"
 }
 
 ROUTINE_OPTIONS = ["Cleanser", "Moisturiser", "Sunscreen", "Treatment", "Exfoliator", "Other"]

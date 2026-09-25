@@ -6,6 +6,7 @@ frames and keeps the sharpest one.
 """
 
 import logging
+import time
 from collections import deque
 from typing import List, Optional, Tuple
 
@@ -23,6 +24,14 @@ FACE_CHECK_EVERY_N_FRAMES = 6
 EXPOSURE_STABILITY_WINDOW = 8
 EXPOSURE_STABLE_STD_THRESHOLD = 8.0
 
+# Webcams hand back black or half-exposed frames for the first moments after
+# opening. Capture stays locked until the picture has actually come up and
+# settled -- or a few seconds have passed, so a dark room never blocks it.
+WARMUP_MIN_FRAMES = 8
+WARMUP_MIN_LEVEL = 12.0
+WARMUP_STABLE_WINDOW = 5
+WARMUP_TIMEOUT_S = 4.0
+
 
 def list_camera_indices(max_probe: int = 5) -> List[int]:
     """Probe the first few device indices and return the ones that open."""
@@ -39,6 +48,7 @@ class CameraWorker(QThread):
     frame_ready = Signal(np.ndarray)
     status_ready = Signal(object)  # FrameStatus
     error = Signal(str)
+    ready = Signal()  # the picture has come up: capturing is now safe
 
     def __init__(self, camera_index: int = 0, width: int = 1280, height: int = 720, parent=None):
         super().__init__(parent)
@@ -79,6 +89,9 @@ class CameraWorker(QThread):
 
         self._running = True
         frame_count = 0
+        started = time.monotonic()
+        recent_levels: deque = deque(maxlen=WARMUP_STABLE_WINDOW)
+        warm = False
 
         while self._running:
             ok, frame = self._cap.read()
@@ -89,6 +102,21 @@ class CameraWorker(QThread):
             self.frame_ready.emit(frame)
 
             frame_count += 1
+            if not warm:
+                level = mean_brightness(frame)
+                recent_levels.append(level)
+                average = sum(recent_levels) / len(recent_levels)
+                settled = (
+                    frame_count >= WARMUP_MIN_FRAMES
+                    and level >= WARMUP_MIN_LEVEL
+                    and len(recent_levels) == recent_levels.maxlen
+                    and (max(recent_levels) - min(recent_levels)) <= max(3.0, 0.10 * average)
+                )
+                if settled or time.monotonic() - started >= WARMUP_TIMEOUT_S:
+                    warm = True
+                    self.ready.emit()
+                continue
+
             if frame_count % FACE_CHECK_EVERY_N_FRAMES == 0:
                 found, box = quick_face_check(frame)
                 brightness = mean_brightness(frame)
@@ -111,8 +139,17 @@ class CameraWorker(QThread):
                 self._burst_frames.append(frame.copy())
                 self._burst_request -= 1
                 if self._burst_request == 0:
-                    self._burst_result = max(self._burst_frames, key=sharpness_score)
+                    self._burst_result = self._best_frame(self._burst_frames)
                     self._burst_frames = []
+
+    @staticmethod
+    def _best_frame(frames: List[np.ndarray]) -> np.ndarray:
+        """The sharpest of the burst's well-exposed frames -- never a darker
+        frame from an exposure ramp just because it happens to be noisier."""
+        levels = [mean_brightness(f) for f in frames]
+        floor = 0.85 * max(levels)
+        pool = [f for f, level in zip(frames, levels) if level >= floor]
+        return max(pool, key=sharpness_score)
 
     def request_capture(self, burst_count: int = 5) -> None:
         """Ask the running loop to grab `burst_count` frames and keep the sharpest."""

@@ -1,7 +1,7 @@
 # 🦊 Foxtale
 
 **AI-Powered Visual Skin Analysis** — a webcam-based face scanner that surfaces visible skin
-characteristics (acne-like spots, redness, texture, dryness indicators) using classic computer
+characteristics (acne-like spots, redness, texture, dryness, oiliness, tone evenness) with an overall score, a full report and a matching Foxtale skincare routine using classic computer
 vision, wrapped in a modern React/TypeScript UI and a FastAPI backend.
 
 > ⚠️ **This is not a medical device.** Foxtale describes *visible features in a photo*. It
@@ -13,23 +13,24 @@ vision, wrapped in a modern React/TypeScript UI and a FastAPI backend.
 
 ```text
 foxtale/
-├── frontend/                  React + TypeScript + Vite + Tailwind
+├── frontend/                  React + TypeScript + Vite + Tailwind (sidebar app, light/dark theme)
 │   └── src/
-│       ├── components/        CameraScanner, FaceOverlay, AnalysisCard, ScanProgress, SkinReport, Navbar, Disclaimer
-│       ├── pages/              Home, Scan, Results, History, About
-│       ├── context/            ScanContext (in-memory scan state + localStorage history)
-│       ├── services/           api.ts (REST client)
-│       └── types/               analysis.ts (shared API types)
+│       ├── pages/              Dashboard, Scan, Analysis, History, Compare, Privacy, About
+│       ├── components/         Layout, CameraScanner, PhotoPanel, Skincare (product cards), ui (pills, score ring, modal)
+│       ├── context/            AppContext (settings, theme, current scan, toasts)
+│       ├── services/api.ts     REST client
+│       └── types/analysis.ts   Shared API types
 │
-└── backend/                   FastAPI
-    ├── main.py                 POST /api/analyze
-    ├── services/
-    │   ├── face_detection.py    OpenCV Haar-cascade face detection + quality checks
-    │   ├── image_processing.py  Crop / normalize / region-split
-    │   └── skin_analysis.py     Rule-based visual heuristics (the "model")
-    ├── models/schemas.py        Pydantic request/response schemas
-    └── utils/image_utils.py     Decode / resize / brightness helpers
+└── backend/                   FastAPI + SQLite (everything runs locally)
+    ├── main.py                 REST API (analyze, scans, trash, report, PDF, insights, settings, privacy)
+    ├── engine/                 OpenCV analysis engine v2: face detection, skin mask, Lab-space measurements,
+    │                           0-100 score, per-region scores, scan quality
+    ├── core/                   storage (SQLite), insights, report builder, skincare advisor, PDF report
+    └── assets/                 foxtale_products.json (catalog) + products/ (product photos)
 ```
+
+Scans, notes and settings are stored in `~/.foxtale_web` (override with `FOXTALE_DATA_DIR`).
+Photos are saved only when **Save scan photos** is on in the Privacy page.
 
 ---
 
@@ -60,6 +61,40 @@ Frontend runs at **http://localhost:5173** and talks to the backend at
 see `.env.example`).
 
 Open http://localhost:5173, click **Start Face Scan**, allow camera access, and capture a photo.
+
+---
+
+## 2b. WhatsApp reports (Meta WhatsApp Cloud API)
+
+Before the first scan the app asks for a WhatsApp number and verifies it with a 6-digit code sent over WhatsApp.
+After every scan the PDF report and a summary are sent to that number automatically.
+
+**Try it without an account:** create `backend/.env` containing `WHATSAPP_DRY_RUN=1` and restart the backend.
+Nothing is sent; the verification code and each report are printed in the backend console.
+
+**Go live**
+
+1. In [Meta for Developers](https://developers.facebook.com/) create an app with the **WhatsApp** product. Note the
+   **Phone number ID** and create a **permanent access token** (System User in Business Settings, permission
+   `whatsapp_business_messaging`). While using Meta's free test number, add each recipient number under
+   *API Setup -> To* first.
+2. In WhatsApp Manager -> *Message templates*, create two templates (language `English`, name as below):
+   - `foxtale_verify`, category **Authentication**, with the *Copy code* button (Meta's standard one-time-passcode template).
+   - `foxtale_report`, category **Utility**, header type **Document** (PDF), and this body (4 variables):
+
+     ```text
+     Hi! Your Foxtale skin analysis from {{4}} is ready. Overall score: {{1}}. {{2}} Suggested routine: {{3}} The full
+     PDF report is attached. This is a visual observation, not a medical diagnosis.
+     ```
+3. Copy `backend/.env.example` to `backend/.env`, fill in `WHATSAPP_TOKEN` and `WHATSAPP_PHONE_NUMBER_ID`
+   (and the template names if you chose different ones), then restart the backend.
+
+Template messages are required because WhatsApp only allows free-form messages inside 24 hours of the user's last
+message. Templates must be approved by Meta before they work.
+
+**Privacy:** the number is stored only in the local database. The report (scores, findings, product suggestions and a
+PDF that can include the scan photo) is uploaded to WhatsApp, which is operated by Meta. The user agrees to this when
+registering, and can turn automatic sending off or remove the number on the Privacy page.
 
 ---
 

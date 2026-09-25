@@ -170,6 +170,19 @@ QPushButton#RoutineChip {{
 QPushButton#RoutineChip:hover {{ border-color: #ffc9a3; }}
 QPushButton#RoutineChip:checked {{ background-color: #fff1e7; border-color: {FOX}; color: {ORANGE_TEXT}; font-weight: 800; }}
 QPushButton#RoutineChip:disabled {{ background-color: #f7f8fb; color: #9aa3b8; border-color: #eef0f5; }}
+QPushButton#PillChip {{
+    background-color: white;
+    color: {NAVY};
+    border: 1px solid #e7e9f0;
+    border-radius: 16px;
+    padding: 3px 14px;
+    min-height: 26px;
+    max-height: 26px;
+    font-weight: 600;
+    font-size: 12px;
+}}
+QPushButton#PillChip:hover {{ border-color: #ffc9a3; }}
+QPushButton#PillChip:checked {{ background-color: #fff1e7; border-color: {FOX}; color: {ORANGE_TEXT}; font-weight: 800; }}
 QPushButton#Secondary:disabled {{ color: #a3abbd; background-color: #f7f8fb; border-color: #eceff5; }}
 QLineEdit {{
     background-color: white;
@@ -577,6 +590,19 @@ QPushButton#RoutineChip {{
 QPushButton#RoutineChip:hover {{ border-color: {FOX}; }}
 QPushButton#RoutineChip:checked {{ background-color: #2a1d10; border-color: {FOX}; color: {FOX_HOVER}; font-weight: 800; }}
 QPushButton#RoutineChip:disabled {{ background-color: #0f1526; color: #56617f; border-color: #1d2740; }}
+QPushButton#PillChip {{
+    background-color: #131b30;
+    color: #e7ecf7;
+    border: 1px solid #263457;
+    border-radius: 16px;
+    padding: 3px 14px;
+    min-height: 26px;
+    max-height: 26px;
+    font-weight: 600;
+    font-size: 12px;
+}}
+QPushButton#PillChip:hover {{ border-color: {FOX}; }}
+QPushButton#PillChip:checked {{ background-color: #2a1d10; border-color: {FOX}; color: {FOX_HOVER}; font-weight: 800; }}
 QPushButton#Secondary:disabled {{ color: #56617f; background-color: #0f1526; border-color: #1d2740; }}
 QLineEdit {{
     background-color: #131b30;
@@ -882,6 +908,8 @@ CATEGORY_QCOLOR = {
     "Redness": "#f97316",
     "Texture": "#f59e0b",
     "Dryness indicators": "#3b82f6",
+    "Oiliness": "#a3a316",
+    "Tone evenness": "#a855f7",
 }
 
 # Severity "pill" (bg, text) pairs, tuned per theme so the text itself always

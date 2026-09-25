@@ -2,24 +2,337 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --bg: #f5f6fa;
+  --card: #ffffff;
+  --soft: #f7f8fc;
+  --ink: #1b2233;
+  --muted: #6b7385;
+  --line: #e6e9f2;
+  color-scheme: light;
+}
+
+.dark {
+  --bg: #0b1224;
+  --card: #111a33;
+  --soft: #141c31;
+  --ink: #eef1f8;
+  --muted: #9aa5bf;
+  --line: #24304f;
+  color-scheme: dark;
+}
+
 html {
   font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
 }
 
+body {
+  background: var(--bg);
+  color: var(--ink);
+}
+
 @layer components {
-  .glass-panel {
-    @apply bg-white/70 backdrop-blur-xl border border-white/60 shadow-glass;
-  }
-
-  .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-fox-500 to-fox-600 px-6 py-3 font-semibold text-white shadow-md shadow-fox-500/25 transition hover:shadow-lg hover:shadow-fox-500/35 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:pointer-events-none;
-  }
-
-  .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-full border border-navy-900/10 bg-white px-6 py-3 font-semibold text-navy-800 transition hover:border-accent-400 hover:text-accent-600 disabled:opacity-50 disabled:pointer-events-none;
-  }
-
   .card {
-    @apply rounded-2xl border border-navy-900/5 bg-white shadow-sm;
+    @apply rounded-[20px] border border-line bg-card shadow-card;
   }
+
+  .btn-cta {
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-fox-600 px-6 py-3 font-bold text-white shadow-glow transition hover:-translate-y-0.5 hover:bg-fox-700 active:translate-y-0 disabled:pointer-events-none disabled:opacity-50;
+  }
+
+  .btn-soft {
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-line bg-card px-5 py-2.5 text-sm font-semibold text-ink transition hover:border-fox-300 hover:text-fox-text disabled:pointer-events-none disabled:opacity-50;
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-rose-300 bg-card px-5 py-2.5 text-sm font-semibold text-rose-600 transition hover:bg-rose-50 dark:border-rose-500/40 dark:hover:bg-rose-500/10;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-2 rounded-full border border-line bg-card px-4 py-2 text-sm font-semibold text-ink transition hover:border-fox-300 disabled:opacity-50;
+  }
+
+  .chip-on {
+    @apply border-fox-500 bg-fox-50 font-bold text-fox-text dark:bg-fox-500/15 dark:text-fox-300;
+  }
+
+  .pill {
+    @apply inline-flex items-center rounded-full px-3 py-1 text-xs font-bold;
+  }
+
+  .label-caps {
+    @apply text-[10.5px] font-extrabold uppercase tracking-[0.1em] text-muted;
+  }
+
+  .input {
+    @apply w-full rounded-2xl border border-line bg-card px-4 py-2.5 text-sm text-ink outline-none transition placeholder:text-muted focus:border-fox-500;
+  }
+}
+
+/* level pills: solid pastel/deep pairs so text always clears AA contrast */
+.lvl-minimal { background: #d1fae5; color: #047857; }
+.lvl-mild { background: #fef3c7; color: #92400e; }
+.lvl-moderate { background: #ffedd5; color: #c2410c; }
+.lvl-noticeable { background: #ffe4e6; color: #be123c; }
+.dark .lvl-minimal { background: #064e3b; color: #6ee7b7; }
+.dark .lvl-mild { background: #451a03; color: #fcd34d; }
+.dark .lvl-moderate { background: #431407; color: #fdba74; }
+.dark .lvl-noticeable { background: #4c0519; color: #fda4af; }
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ------------------------------------------------------------------ motion */
+
+:root {
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* colours ease when switching light/dark */
+body,
+.card,
+aside,
+header,
+footer,
+.input,
+.chip,
+.btn-soft {
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease,
+    transform 0.2s var(--ease-out);
+}
+
+:focus-visible {
+  outline: 2px solid #e54a00;
+  outline-offset: 2px;
+  border-radius: 12px;
+}
+
+/* press feedback on every button-like control */
+button:not(:disabled),
+a.btn-cta,
+a.btn-soft {
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-cta:not(:disabled):active,
+.btn-soft:not(:disabled):active,
+.btn-danger:not(:disabled):active,
+.chip:not(:disabled):active {
+  transform: scale(0.96);
+}
+
+/* primary button: a light sweep on hover, arrow/icon nudge */
+.btn-cta {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.btn-cta::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.28) 50%, transparent 70%);
+  transform: translateX(-120%);
+}
+.btn-cta:hover::after {
+  transform: translateX(120%);
+  transition: transform 0.7s var(--ease-out);
+}
+.btn-cta svg,
+.btn-soft svg {
+  transition: transform 0.25s var(--ease-spring);
+}
+.btn-cta:hover svg,
+.btn-soft:hover svg {
+  transform: scale(1.15) rotate(-4deg);
+}
+
+/* gentle attention pulse for the main call to action */
+.cta-pulse {
+  animation: ctapulse 2.8s ease-in-out infinite;
+}
+@keyframes ctapulse {
+  0%, 100% { box-shadow: 0 10px 26px rgba(229, 74, 0, 0.32); }
+  50% { box-shadow: 0 12px 34px rgba(229, 74, 0, 0.5), 0 0 0 6px rgba(229, 74, 0, 0.08); }
+}
+
+/* entrance + scroll reveal */
+.reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.6s var(--ease-out), transform 0.6s var(--ease-out);
+  transition-delay: calc(var(--i, 0) * 70ms);
+}
+.reveal.in {
+  opacity: 1;
+  transform: none;
+}
+
+.page-enter {
+  animation: pageenter 0.45s var(--ease-out) backwards;
+}
+@keyframes pageenter {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+
+.pop {
+  animation: pop 0.45s var(--ease-spring) backwards;
+}
+@keyframes pop {
+  0% { transform: scale(0.6); opacity: 0; }
+  60% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
+.star-burst {
+  animation: starburst 0.5s var(--ease-spring);
+}
+@keyframes starburst {
+  0% { transform: scale(1) rotate(0); }
+  40% { transform: scale(1.5) rotate(-18deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+
+.float {
+  animation: float 6s ease-in-out infinite;
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.flicker {
+  animation: flicker 1.6s ease-in-out infinite;
+  transform-origin: 50% 90%;
+}
+@keyframes flicker {
+  0%, 100% { transform: scale(1) rotate(0); }
+  30% { transform: scale(1.12) rotate(-4deg); }
+  60% { transform: scale(0.96) rotate(3deg); }
+}
+
+.shake {
+  animation: shake 0.4s ease;
+}
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-7px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(3px); }
+}
+
+/* skeleton loading blocks */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--soft);
+  border-radius: 14px;
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, 0.55) 50%, transparent 80%);
+  transform: translateX(-100%);
+  animation: shimmer 1.4s infinite;
+}
+.dark .skeleton::after {
+  background: linear-gradient(100deg, transparent 20%, rgba(255, 255, 255, 0.07) 50%, transparent 80%);
+}
+@keyframes shimmer {
+  to { transform: translateX(100%); }
+}
+
+/* shutter flash when a photo is captured */
+.flash {
+  animation: flash 0.5s ease-out both;
+}
+@keyframes flash {
+  0% { opacity: 0.9; }
+  100% { opacity: 0; }
+}
+
+/* countdown digits */
+.count-pop {
+  animation: countpop 0.8s var(--ease-out) both;
+}
+@keyframes countpop {
+  0% { transform: scale(1.8); opacity: 0; }
+  30% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.8); opacity: 0.2; }
+}
+
+/* toast with a draining timer bar */
+.toast-in {
+  animation: toastin 0.35s var(--ease-spring) both;
+}
+@keyframes toastin {
+  from { opacity: 0; transform: translate(-50%, 20px) scale(0.95); }
+  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+.toast-bar {
+  animation: toastbar 3.2s linear forwards;
+  transform-origin: left;
+}
+@keyframes toastbar {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+/* smooth open/close for details drawers (animates height without measuring) */
+.drawer {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 0.35s var(--ease-out), opacity 0.3s ease;
+}
+.drawer.open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+.drawer > div {
+  overflow: hidden;
+}
+
+/* card hover lift */
+.lift {
+  transition: transform 0.3s var(--ease-out), box-shadow 0.3s var(--ease-out), border-color 0.3s ease;
+}
+.lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 14px 34px rgba(20, 30, 60, 0.13);
+}
+.zoom-img img {
+  transition: transform 0.6s var(--ease-out);
+}
+.lift:hover .zoom-img img,
+.lift:hover .zoom-img svg {
+  transform: scale(1.06);
+}
+.zoom-img svg {
+  transition: transform 0.6s var(--ease-out);
+}
+
+/* sidebar link icon nudge */
+.nav-link svg {
+  transition: transform 0.3s var(--ease-spring);
+}
+.nav-link:hover svg {
+  transform: translateX(2px) scale(1.12);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1; transform: none; }
+  html { scroll-behavior: auto; }
 }

@@ -2,12 +2,14 @@
 a visible-observation panel, region breakdown, personal notes, a scan
 journal, recommendations, and export actions."""
 
+import os
+import tempfile
 from datetime import datetime
 from typing import Callable, Dict, Optional
 
 import cv2
 import numpy as np
-from PySide6.QtCore import QPoint, QSize, Qt
+from PySide6.QtCore import QEasingCurve, QPoint, QPropertyAnimation, QSize, Qt
 from PySide6.QtWidgets import (
     QComboBox, QFileDialog, QFrame, QHBoxLayout, QLabel, QLineEdit, QMenu,
     QPushButton, QScrollArea, QVBoxLayout, QWidget,
@@ -26,6 +28,8 @@ from gui.widgets.analysis_card import AnalysisCard
 from gui.widgets.analysis_widgets import FaceSketch, PhotoPanel, RegionDonut
 from gui.widgets.disclaimer import DisclaimerBanner
 from gui.widgets.quality_card import QualityCard
+from gui.widgets.report_card import ReportCard
+from gui.widgets.skincare_card import SkincareCard
 
 REGION_BUCKETS = ["Forehead", "Cheeks", "Nose", "Chin", "Others"]
 REGION_COLORS = ["#e54a00", "#f5a524", "#3b8dff", "#12a06a", "#8b7fd6"]
@@ -125,6 +129,7 @@ class ResultsPage(QWidget):
         self.layout_.setSpacing(16)
 
         self._build_header()
+        self._build_section_nav()
         self.layout_.addWidget(DisclaimerBanner())
 
         self.cards_container = QWidget()
@@ -132,6 +137,12 @@ class ResultsPage(QWidget):
         self.cards_row.setContentsMargins(0, 0, 0, 0)
         self.cards_row.setSpacing(14)
         self.layout_.addWidget(self.cards_container)
+
+        self.report_card = ReportCard()
+        self.layout_.addWidget(self.report_card)
+
+        self.skincare_card = SkincareCard(self._on_owned_product_changed)
+        self.layout_.addWidget(self.skincare_card)
 
         self._build_heatmap_row()
         self._build_main_split()
@@ -188,6 +199,45 @@ class ResultsPage(QWidget):
         header.addWidget(self.save_btn, alignment=Qt.AlignmentFlag.AlignTop)
         self.layout_.addLayout(header)
 
+    def _build_section_nav(self) -> None:
+        """Quick-jump chips so the long report is easy to move around."""
+        self.section_nav = QWidget()
+        row = QHBoxLayout(self.section_nav)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(8)
+        self._nav_targets = {}
+        for key, label, icon_name in (
+            ("report", "Report", "fa5s.clipboard-check"), ("skincare", "Skincare", "fa5s.pump-soap"),
+            ("photo", "Photo & regions", "fa5s.camera"), ("notes", "Notes & journal", "fa5s.pen"),
+            ("tips", "Tips", "fa5.lightbulb"),
+        ):
+            btn = QPushButton(f"  {label}")
+            btn.setObjectName("PillChip")
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn.setIconSize(QSize(13, 13))
+            btn.setIcon(make_icon(icon_name, muted_text_color()))
+            btn.clicked.connect(lambda _=False, k=key: self._jump_to(k))
+            row.addWidget(btn)
+        row.addStretch()
+        self.layout_.addWidget(self.section_nav)
+
+    def _jump_to(self, key: str) -> None:
+        target = {
+            "report": self.report_card, "skincare": self.skincare_card, "photo": self.photo_panel,
+            "notes": self.notes_panel, "tips": self.reco_panel,
+        }[key]
+        if not target.isVisible():
+            return
+        content = self._scroll.widget()
+        y = max(0, target.mapTo(content, QPoint(0, 0)).y() - 12)
+        bar = self._scroll.verticalScrollBar()
+        self._nav_anim = QPropertyAnimation(bar, b"value", self)
+        self._nav_anim.setDuration(320)
+        self._nav_anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self._nav_anim.setStartValue(bar.value())
+        self._nav_anim.setEndValue(min(y, bar.maximum()))
+        self._nav_anim.start()
+
     def _build_heatmap_row(self) -> None:
         row = QHBoxLayout()
         row.setSpacing(12)
@@ -205,7 +255,7 @@ class ResultsPage(QWidget):
         self.heatmap_category_combo.setMinimumWidth(170)
         self.heatmap_category_combo.setFixedHeight(46)
         self.heatmap_category_combo.addItem("All Categories", None)
-        for category in ("Acne-like spots", "Redness", "Texture", "Dryness indicators"):
+        for category in ("Acne-like spots", "Redness", "Texture", "Dryness indicators", "Oiliness", "Tone evenness"):
             self.heatmap_category_combo.addItem(category, category)
         self.heatmap_category_combo.currentIndexChanged.connect(self._update_heatmap)
         row.addWidget(self.heatmap_category_combo)
@@ -475,6 +525,9 @@ class ResultsPage(QWidget):
         self.sub_label.setText("AI-powered visual skin observations")
         self._clear_layout(self.cards_row)
         self.cards_container.setVisible(False)
+        self.report_card.setVisible(False)
+        self.skincare_card.setVisible(False)
+        self.section_nav.setVisible(False)
         self.photo_panel.show_empty()
         self.detail_body.setText(DETAIL_HINT)
         self.donut.set_segments([], center_text="")
@@ -551,6 +604,11 @@ class ResultsPage(QWidget):
         if record.quality:
             self.cards_row.addWidget(QualityCard(record.quality))
         self.cards_container.setVisible(True)
+        self.report_card.set_data(analysis, self._previous_analysis())
+        self.report_card.setVisible(True)
+        self.skincare_card.set_data(analysis, storage.load_settings().get("owned_products", []))
+        self.skincare_card.setVisible(True)
+        self.section_nav.setVisible(True)
 
         if image is not None:
             self.photo_panel.show_photo(image, record.regions)
@@ -572,6 +630,27 @@ class ResultsPage(QWidget):
         self.reco_panel.setVisible(True)
 
     # ------------------------------------------------------------ actions
+
+    def _on_owned_product_changed(self, product_id: str, owned: bool) -> None:
+        settings = storage.load_settings()
+        ids = [i for i in settings.get("owned_products", []) if i != product_id]
+        if owned:
+            ids.append(product_id)
+        settings["owned_products"] = ids
+        storage.save_settings(settings)
+        if self._record:
+            self.skincare_card.set_data(self._record.analysis, ids)
+
+    def _previous_analysis(self):
+        """The scan taken just before the one on screen, for change-over-time lines."""
+        if not self._record:
+            return None
+        scans = storage.list_scans()  # newest first
+        ids = [r.id for r in scans]
+        if self._record.id in ids:
+            idx = ids.index(self._record.id) + 1
+            return scans[idx].analysis if idx < len(scans) else None
+        return scans[0].analysis if scans else None
 
     def _on_marker_clicked(self, region: RegionObservation) -> None:
         self.detail_body.setText(
@@ -614,16 +693,27 @@ class ResultsPage(QWidget):
             return
         annotated_path = None
         if self._image is not None:
-            annotated_path = path.rsplit(".", 1)[0] + "_annotated_tmp.jpg"
+            fd, annotated_path = tempfile.mkstemp(suffix=".jpg", prefix="foxtale_report_")
+            os.close(fd)
             save_annotated_image(self._image, self._record.regions, annotated_path)
-        build_pdf_report(
-            path,
-            self._record.analysis,
-            self._record.regions,
-            build_recommendations(self._record.analysis),
-            annotated_image_path=annotated_path,
-            timestamp=datetime.fromisoformat(self._record.timestamp).strftime("%Y-%m-%d %H:%M"),
-        )
+        try:
+            build_pdf_report(
+                path,
+                self._record.analysis,
+                self._record.regions,
+                build_recommendations(self._record.analysis),
+                annotated_image_path=annotated_path,
+                timestamp=datetime.fromisoformat(self._record.timestamp).strftime("%Y-%m-%d %H:%M"),
+                quality=self._record.quality,
+                previous=self._previous_analysis(),
+                note=self._record.note,
+            )
+        finally:
+            if annotated_path:
+                try:
+                    os.remove(annotated_path)
+                except OSError:
+                    pass
         self._show_toast("PDF report exported.")
 
     def _export_png(self) -> None:

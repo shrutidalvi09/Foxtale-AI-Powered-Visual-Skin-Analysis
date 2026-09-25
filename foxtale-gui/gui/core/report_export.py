@@ -24,6 +24,8 @@ CATEGORY_COLOR_BGR = {
     "Redness": (0, 140, 255),
     "Texture": (0, 190, 255),
     "Dryness indicators": (255, 170, 80),
+    "Oiliness": (200, 200, 60),
+    "Tone evenness": (200, 120, 200),
 }
 
 
@@ -129,81 +131,17 @@ def build_pdf_report(
     recommendations: List[str],
     annotated_image_path: Optional[str] = None,
     timestamp: Optional[str] = None,
+    quality=None,
+    previous: Optional[SkinAnalysis] = None,
+    note: str = "",
 ) -> None:
-    c = canvas.Canvas(dest_path, pagesize=A4)
-    page_w, page_h = A4
-    margin = 18 * mm
-    y = page_h - margin
+    """The full multi-page face analysis report -- see face_report_pdf."""
+    from gui.core.face_report_pdf import build_face_report
 
-    c.setFillColorRGB(0.04, 0.07, 0.14)
-    c.setFont("Helvetica-Bold", 20)
-    c.drawString(margin, y, "Foxtale — Skin Analysis Report")
-    y -= 10 * mm
-
-    c.setFont("Helvetica", 10)
-    c.setFillColorRGB(0.35, 0.4, 0.5)
-    c.drawString(margin, y, f"Generated: {timestamp or 'N/A'}")
-    y -= 8 * mm
-
-    if annotated_image_path:
-        img_size = 60 * mm
-        c.drawImage(annotated_image_path, margin, y - img_size, width=img_size, height=img_size,
-                    preserveAspectRatio=True, anchor='n')
-        card_x = margin + img_size + 8 * mm
-    else:
-        card_x = margin
-
-    card_y = y
-    c.setFillColorRGB(0.04, 0.07, 0.14)
-    c.setFont("Helvetica-Bold", 12)
-    for label, cat in [
-        ("Acne-like Spots", analysis.acne_like_spots),
-        ("Visible Redness", analysis.redness),
-        ("Skin Texture", analysis.texture),
-        ("Dryness Indicators", analysis.dryness_indicators),
-    ]:
-        c.setFont("Helvetica-Bold", 11)
-        c.drawString(card_x, card_y, f"{label}:")
-        c.setFont("Helvetica", 11)
-        extra = f" ({cat.count} area(s))" if cat.count is not None else ""
-        c.drawString(card_x + 55 * mm, card_y, f"{cat.level.title()}{extra} — {int(cat.confidence * 100)}% confidence")
-        card_y -= 7 * mm
-
-    y = min(y - 65 * mm, card_y - 4 * mm)
-
-    c.setFont("Helvetica-Bold", 13)
-    c.drawString(margin, y, "Region Breakdown")
-    y -= 7 * mm
-    c.setFont("Helvetica", 9.5)
-    if not regions:
-        y = _draw_wrapped(c, "No notable visible observations in any region.", margin, y, page_w - 2 * margin)
-    for r in regions:
-        y = _draw_wrapped(c, f"[{r.region}] {r.category}: {r.observation}", margin, y, page_w - 2 * margin)
-        if y < 40 * mm:
-            c.showPage()
-            y = page_h - margin
-
-    y -= 4 * mm
-    c.setFont("Helvetica-Bold", 13)
-    c.drawString(margin, y, "Recommendations")
-    y -= 7 * mm
-    c.setFont("Helvetica", 9.5)
-    for tip in recommendations:
-        y = _draw_wrapped(c, f"• {tip}", margin, y, page_w - 2 * margin)
-        if y < 40 * mm:
-            c.showPage()
-            y = page_h - margin
-
-    y -= 6 * mm
-    c.setFillColor(colors.HexColor("#FF8A3D"))
-    c.setFont("Helvetica-Bold", 9)
-    c.drawString(margin, y, "AI Disclaimer:")
-    y -= 5 * mm
-    c.setFillColorRGB(0.2, 0.22, 0.3)
-    c.setFont("Helvetica", 8.5)
-    _draw_wrapped(c, DISCLAIMER, margin, y, page_w - 2 * margin, size=8.5)
-
-    c.save()
+    build_face_report(
+        dest_path, analysis, regions, recommendations, annotated_image_path=annotated_image_path,
+        timestamp=timestamp, quality=quality, previous=previous, note=note,
+    )
 
 
 def build_progress_report(

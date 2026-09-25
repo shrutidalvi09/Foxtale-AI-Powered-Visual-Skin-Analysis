@@ -1,0 +1,354 @@
+{
+  "_note": "Foxtale product catalog used by the Recommended Skincare card. Product names, key ingredients and usage were taken from foxtale.in pages on the date in 'verified_on'. Formulas and availability change: check the product label before buying, and edit this file to update it. 'how_it_works' is general ingredient science, not a claim about a clinical result.",
+  "verified_on": "2026-09-25",
+  "products": [
+    {
+      "id": "salicylic-face-wash",
+      "name": "2% Salicylic Acid Acne Control Face Wash",
+      "step": "cleanse",
+      "when": "AM + PM",
+      "key_ingredients": [
+        "Salicylic acid 2%",
+        "Niacinamide",
+        "Hyaluronic acid"
+      ],
+      "targets": [
+        "acne_like_spots",
+        "oiliness"
+      ],
+      "skin_types": [
+        "oily",
+        "combination"
+      ],
+      "active": false,
+      "how_it_works": "Salicylic acid is oil-soluble, so it can get inside pores and loosen the mix of oil and dead skin that clogs them, which is what many spots start from. Niacinamide helps regulate oil, and hyaluronic acid keeps the wash from leaving skin tight.",
+      "how_to_use": "Massage onto damp skin for 30-60 seconds, then rinse. Use morning and night.",
+      "caution": "Can feel drying if your skin is dry or irritated; use once a day at first.",
+      "url": "https://foxtale.in/products/true-clarity-oil-acne-control-face-wash",
+      "avoid_if": {},
+      "size": "100 ml",
+      "price_inr": 249,
+      "shape": "tube",
+      "price_source": "foxtale",
+      "store_title": "Oil & Acne Control Face Wash"
+    },
+    {
+      "id": "hydrating-face-wash",
+      "name": "2-in-1 Hydrating Face Wash cum Makeup Remover",
+      "step": "cleanse",
+      "when": "AM + PM",
+      "key_ingredients": [
+        "Sodium hyaluronate",
+        "Red algae extract",
+        "Vitamin B5"
+      ],
+      "targets": [
+        "dryness_indicators",
+        "redness"
+      ],
+      "skin_types": [
+        "dry",
+        "normal",
+        "combination"
+      ],
+      "active": false,
+      "how_it_works": "A gentle, non-stripping wash removes dirt without washing away the skin's own oils. Sodium hyaluronate draws water into the top layer of skin, and the algae extract leaves a light film that helps slow water loss after rinsing.",
+      "how_to_use": "Massage a coin-sized amount onto damp skin, then rinse with lukewarm water. Use morning and night.",
+      "caution": "Rinse with lukewarm, not hot, water.",
+      "url": "https://foxtale.in/products/the-daily-duet-cleanser",
+      "avoid_if": {},
+      "size": "100 ml",
+      "price_inr": 395,
+      "shape": "tube",
+      "price_source": "foxtale",
+      "store_title": "Hydrating Face Wash"
+    },
+    {
+      "id": "niacinamide-azelaic-serum",
+      "name": "12% Niacinamide Face Serum with Azelaic Acid",
+      "step": "treat",
+      "when": "AM + PM",
+      "key_ingredients": [
+        "Niacinamide 12%",
+        "Azelaic acid"
+      ],
+      "targets": [
+        "acne_like_spots",
+        "redness",
+        "oiliness",
+        "tone_evenness",
+        "texture"
+      ],
+      "skin_types": [
+        "oily",
+        "combination",
+        "normal"
+      ],
+      "active": false,
+      "how_it_works": "Niacinamide helps regulate oil, supports the skin barrier and can fade the look of post-acne marks. Azelaic acid calms redness and brightens uneven tone, so the two work on spots, redness and evenness together.",
+      "how_to_use": "Apply 2-3 pumps to clean, slightly damp skin, wait about a minute, then moisturize. Start every other day because of the 12% strength.",
+      "caution": "Patch-test first. Stop if you get stinging or redness that lasts.",
+      "url": "https://foxtale.in/products/niacinamide-clarifying-serum",
+      "avoid_if": {},
+      "size": "30 ml",
+      "price_inr": 645,
+      "shape": "dropper",
+      "price_source": "foxtale",
+      "store_title": "12% Niacinamide Clarifying Serum"
+    },
+    {
+      "id": "aha-bha-serum",
+      "name": "AHA BHA Exfoliating Serum",
+      "step": "treat",
+      "when": "PM",
+      "key_ingredients": [
+        "Glycolic acid",
+        "Salicylic acid",
+        "Hyaluronic acid",
+        "Niacinamide"
+      ],
+      "targets": [
+        "texture",
+        "acne_like_spots",
+        "tone_evenness"
+      ],
+      "skin_types": [
+        "oily",
+        "combination",
+        "normal"
+      ],
+      "active": true,
+      "how_it_works": "Glycolic acid (an AHA) loosens the dull layer of dead skin on the surface, which smooths rough texture. Salicylic acid (a BHA) works inside pores to clear buildup. Hyaluronic acid and niacinamide help offset dryness and irritation.",
+      "how_to_use": "Use at night, up to three times a week, on clean dry skin. Avoid the eye and mouth area, and always wear sunscreen the next morning.",
+      "caution": "Exfoliating acid: patch-test first, and skip it if your skin is red, dry or irritated.",
+      "url": "https://foxtale.in/products/aha-bha-serum-with-salicylic-and-glycolic-acid",
+      "avoid_if": {
+        "redness": 2,
+        "dryness_indicators": 2
+      },
+      "size": "30 ml",
+      "price_inr": 545,
+      "shape": "dropper",
+      "price_source": "retailer_mrp"
+    },
+    {
+      "id": "spot-corrector-gel",
+      "name": "Anti-Acne Spot Corrector Gel with Salicylic Acid",
+      "step": "treat",
+      "when": "PM",
+      "key_ingredients": [
+        "Salicylic acid"
+      ],
+      "targets": [
+        "acne_like_spots"
+      ],
+      "skin_types": [
+        "oily",
+        "combination",
+        "normal",
+        "dry"
+      ],
+      "active": false,
+      "how_it_works": "Applied only on an individual spot, salicylic acid dries out the surface oil and helps clear the pore, while the small area limits irritation to the rest of your face.",
+      "how_to_use": "Dab a small amount on a spot only, at night, on clean dry skin.",
+      "caution": "Spot use only; do not spread over dry or broken skin.",
+      "url": "https://foxtale.in/products/acne-spot-corrector-gel",
+      "avoid_if": {},
+      "size": "15 ml",
+      "price_inr": 449,
+      "shape": "tube",
+      "price_source": "foxtale",
+      "store_title": "Acne Spot Corrector with Salicylic Acid"
+    },
+    {
+      "id": "vitamin-c-serum",
+      "name": "C for Yourself Vitamin C Serum",
+      "step": "treat",
+      "when": "AM",
+      "key_ingredients": [
+        "15% L-ascorbic acid",
+        "1% Vitamin E"
+      ],
+      "targets": [
+        "tone_evenness"
+      ],
+      "skin_types": [
+        "oily",
+        "combination",
+        "normal",
+        "dry"
+      ],
+      "active": true,
+      "how_it_works": "Vitamin C is an antioxidant that helps interrupt the pigment-making process and protects skin from sun-related damage, which supports a brighter, more even-looking tone over several weeks. Vitamin E helps keep it stable.",
+      "how_to_use": "Apply a few drops to clean skin in the morning, before moisturizer and sunscreen. Results usually take 4-6 weeks.",
+      "caution": "Strong active: patch-test first, and always follow with sunscreen.",
+      "url": "https://foxtale.in/products/c-for-yourself-vitamin-c-serum",
+      "avoid_if": {
+        "redness": 2
+      },
+      "size": "30 ml",
+      "price_inr": 645,
+      "shape": "dropper",
+      "price_source": "foxtale",
+      "store_title": "Vitamin C Serum"
+    },
+    {
+      "id": "hyaluronic-serum",
+      "name": "Daily Hydrating Hyaluronic Acid Serum",
+      "step": "treat",
+      "when": "AM + PM",
+      "key_ingredients": [
+        "Hyaluronic acid",
+        "Hydration boosters"
+      ],
+      "targets": [
+        "dryness_indicators",
+        "redness"
+      ],
+      "skin_types": [
+        "dry",
+        "normal",
+        "combination"
+      ],
+      "active": false,
+      "how_it_works": "Hyaluronic acid is a humectant: it holds many times its weight in water and pulls it into the top layer of skin, which can make dull, tight-looking areas look plumper and calmer.",
+      "how_to_use": "Apply to slightly damp skin after cleansing, then seal in with a moisturizer.",
+      "caution": "Apply on damp skin; on very dry skin it works best under a moisturizer.",
+      "url": "https://foxtale.in/products/daily-hydrating-hyaluronic-acid-serum",
+      "avoid_if": {},
+      "size": "30 ml",
+      "price_inr": 549,
+      "shape": "dropper",
+      "price_source": "foxtale",
+      "store_title": "Hyaluronic Acid Serum"
+    },
+    {
+      "id": "oil-balancing-moisturizer",
+      "name": "Niacinamide & Cica Oil Free Moisturizer",
+      "step": "moisturize",
+      "when": "AM + PM",
+      "key_ingredients": [
+        "Niacinamide",
+        "Cica (Centella asiatica)",
+        "Azelaic acid serum pearls"
+      ],
+      "targets": [
+        "oiliness",
+        "redness",
+        "acne_like_spots"
+      ],
+      "skin_types": [
+        "oily",
+        "combination"
+      ],
+      "active": false,
+      "how_it_works": "A light, oil-free gel gives skin water without adding grease. Niacinamide helps regulate oil, and cica (centella) is soothing and supports the skin barrier, which helps calm redness left by breakouts.",
+      "how_to_use": "Apply after serum, morning and night.",
+      "caution": "",
+      "url": "https://foxtale.in/products/oil-balancing-moisturizer",
+      "avoid_if": {},
+      "size": "50 ml",
+      "price_inr": 445,
+      "shape": "jar",
+      "price_source": "foxtale",
+      "store_title": "Oil Balancing Moisturizer with Niacinamide & Cica"
+    },
+    {
+      "id": "ceramide-moisturizer",
+      "name": "Nourishing Ceramide Moisturizer",
+      "step": "moisturize",
+      "when": "AM + PM",
+      "key_ingredients": [
+        "5 Ceramide complex",
+        "Niacinamide",
+        "Sodium hyaluronate crosspolymer"
+      ],
+      "targets": [
+        "dryness_indicators",
+        "redness",
+        "texture"
+      ],
+      "skin_types": [
+        "dry",
+        "normal",
+        "combination"
+      ],
+      "active": false,
+      "how_it_works": "Ceramides are natural fats that fill the gaps between skin cells and act like mortar in the skin barrier. Topping them up helps skin hold water, which can ease flaking and tightness and make rough patches look smoother.",
+      "how_to_use": "Apply a generous layer to face and neck, morning and night.",
+      "caution": "",
+      "url": "https://foxtale.in/products/nourishing-moisturizer-with-ceramides",
+      "avoid_if": {},
+      "size": "50 ml",
+      "price_inr": 275,
+      "shape": "jar",
+      "price_source": "foxtale",
+      "store_title": "Nourishing Ceramide Moisturizer"
+    },
+    {
+      "id": "matte-sunscreen",
+      "name": "SPF 50 PA++++ Matte Sunscreen",
+      "step": "protect",
+      "when": "AM",
+      "key_ingredients": [
+        "SPF 50 PA++++ new-gen UV filters",
+        "Niacinamide"
+      ],
+      "targets": [
+        "oiliness",
+        "redness",
+        "tone_evenness",
+        "acne_like_spots"
+      ],
+      "skin_types": [
+        "oily",
+        "combination",
+        "normal"
+      ],
+      "active": false,
+      "how_it_works": "UV light darkens marks, worsens redness and makes tone look uneven, so sunscreen protects any other step you use. This one has a matte finish for shine-prone skin, and niacinamide adds oil control.",
+      "how_to_use": "Apply two finger-lengths to face and neck as the last morning step, and reapply every 2-3 hours in the sun.",
+      "caution": "",
+      "url": "https://foxtale.in/products/matte-finish-sunscreen",
+      "avoid_if": {},
+      "size": "50 ml",
+      "price_inr": 495,
+      "shape": "tube",
+      "price_source": "foxtale",
+      "store_title": "Ultra Matte Sunscreen SPF 50 PA ++++ for Oily Skin"
+    },
+    {
+      "id": "dewy-sunscreen",
+      "name": "SPF 50 PA++++ Dewy Finish Sunscreen",
+      "step": "protect",
+      "when": "AM",
+      "key_ingredients": [
+        "SPF 50 PA++++ broad-spectrum UVA/UVB filters"
+      ],
+      "targets": [
+        "dryness_indicators",
+        "redness",
+        "tone_evenness"
+      ],
+      "skin_types": [
+        "dry",
+        "normal",
+        "combination"
+      ],
+      "active": false,
+      "how_it_works": "UV light damages the skin barrier, worsens redness and darkens marks. A broad-spectrum SPF 50 blocks UVA and UVB, and the dewy finish suits skin that looks dull or dry.",
+      "how_to_use": "Apply two finger-lengths to face and neck as the last morning step, and reapply every 2-3 hours in the sun.",
+      "caution": "",
+      "url": "https://foxtale.in/products/spf-50-dewy-finish-sunscreen",
+      "avoid_if": {},
+      "size": "50 ml",
+      "price_inr": 495,
+      "shape": "tube",
+      "price_source": "foxtale",
+      "store_title": "Dewy Finish Sunscreen SPF 50 PA ++++ SPF 50 for Dry Skin | In-Vivo Tested"
+    }
+  ],
+  "price_note": "Prices are Foxtale's own store prices read on 2026-09-25 and can change with offers. The AHA BHA Exfoliating Serum was not in the store feed that day, so its price is the printed MRP from retailer listings.",
+  "price_checked": "2026-09-25",
+  "image_note": "Product pictures are Foxtale's own product images from its online store (assets/products)."
+}

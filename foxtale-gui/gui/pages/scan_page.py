@@ -22,9 +22,12 @@ from gui.widgets.scan_progress import ScanProgress
 ERROR_COPY = {
     "no_face": ("No face detected", "Please position your face inside the scanning area."),
     "multiple_faces": ("Multiple faces detected", "Please make sure only one person is visible."),
-    "poor_lighting": ("Lighting is insufficient", "Move to a well-lit area and try again."),
     "too_close": ("Face too close", "Move slightly farther away."),
     "too_far": ("Face too far", "Move closer to the camera."),
+    "not_enough_skin": (
+        "Not enough visible skin",
+        "Face the camera and keep hair or hands off your face, then try again.",
+    ),
 }
 
 BEST_SCAN_TIPS = [
@@ -84,6 +87,7 @@ class ScanPage(QWidget):
         self._on_scan_complete = on_scan_complete
         self._show_toast = show_toast
         self._worker: Optional[AnalysisWorker] = None
+        self._analyze_after_capture = False
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(36, 28, 36, 24)
@@ -213,8 +217,7 @@ class ScanPage(QWidget):
             v.addLayout(row)
         return frame
 
-    @staticmethod
-    def _next_steps_card() -> QFrame:
+    def _next_steps_card(self) -> QFrame:
         frame, v = _card("What happens next?")
         light = get_current_theme() == "light"
         for i, (icon_name, fg, bg, title, body_text) in enumerate(NEXT_STEPS):
@@ -249,14 +252,47 @@ class ScanPage(QWidget):
             text_col.addWidget(b)
             row.addLayout(text_col, stretch=1)
             v.addLayout(row)
+
+        v.addSpacing(10)
+        self.analysis_btn = QPushButton("  Analysis")
+        self.analysis_btn.setIcon(make_icon("fa5s.chart-bar", "white"))
+        self.analysis_btn.setIconSize(QSize(17, 17))
+        self.analysis_btn.setObjectName("Cta")
+        self.analysis_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.analysis_btn.setFixedHeight(48)
+        apply_cta_glow(self.analysis_btn)
+        self.analysis_btn.clicked.connect(self._on_analysis_clicked)
+        v.addWidget(self.analysis_btn)
+        hint = QLabel("Analyzes your photo and opens the report in the Analysis tab.")
+        hint.setObjectName("Muted")
+        hint.setWordWrap(True)
+        v.addWidget(hint)
         return frame
+
+    def _on_analysis_clicked(self) -> None:
+        """Analyze the current photo -- capturing one first if the camera is live."""
+        if self._worker is not None and self._worker.isRunning():
+            return
+        if self.camera.current_frame() is not None:
+            self._start_scan()
+        elif self.camera.is_live():
+            self._analyze_after_capture = True
+            self.camera.capture()
+        elif self.camera.is_running():
+            self._show_toast("The camera is still starting \u2014 one moment, then press Analysis again.")
+        else:
+            self._show_toast("Start the camera or import a photo first, then press Analysis.")
 
     def _on_captured(self, frame: np.ndarray) -> None:
         self.error_banner.hide()
         self.calibrate_btn.setVisible(True)
         self.start_scan_btn.setVisible(True)
+        if self._analyze_after_capture:
+            self._analyze_after_capture = False
+            self._start_scan()
 
     def _on_camera_error(self, message: str) -> None:
+        self._analyze_after_capture = False
         self.error_banner.setText(message)
         self.error_banner.show()
 
@@ -281,6 +317,8 @@ class ScanPage(QWidget):
         if frame is None:
             return
         self.error_banner.hide()
+        self.analysis_btn.setEnabled(False)
+        self.start_scan_btn.setEnabled(False)
         self.stack.setCurrentIndex(1)
         self.progress.start()
 
@@ -303,14 +341,30 @@ class ScanPage(QWidget):
         title, body = ERROR_COPY.get(result.error, ("Could not analyze image", result.message or "Please try again."))
         self.error_banner.setText(f"{title}. {body}")
         self.error_banner.show()
+        self.analysis_btn.setEnabled(True)
+        self.start_scan_btn.setEnabled(True)
         self.stack.setCurrentIndex(0)
 
     def reset(self) -> None:
-        self.camera.retake() if self.camera.current_frame() is not None else None
+        """Open the page in its idle state: camera off, nothing captured. The
+        camera only ever starts when the user asks for it."""
+        self.camera.reset_to_idle()
         self.calibrate_btn.setVisible(False)
         self.start_scan_btn.setVisible(False)
+        self.analysis_btn.setEnabled(True)
+        self.start_scan_btn.setEnabled(True)
+        self._analyze_after_capture = False
         self.error_banner.hide()
         self.stack.setCurrentIndex(0)
+
+    def release_camera(self) -> None:
+        """Switch the camera off (leaving the page, locking, hiding to the tray)."""
+        self._analyze_after_capture = False
+        self.camera.stop_camera()
+
+    def start_camera(self) -> None:
+        self.reset()
+        self.camera.start_camera()
 
     def shutdown(self) -> None:
         self.camera.shutdown()

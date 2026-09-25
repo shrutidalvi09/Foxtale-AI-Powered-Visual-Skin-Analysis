@@ -6,7 +6,7 @@ from PySide6.QtCore import QEvent, QRect, QSize, Qt, QTimer, QUrl
 from PySide6.QtGui import QDesktopServices, QKeySequence
 from PySide6.QtWidgets import (
     QApplication, QFrame, QHBoxLayout, QLabel, QMainWindow, QMenu, QPushButton,
-    QStackedWidget, QSystemTrayIcon, QVBoxLayout, QWidget,
+    QScrollArea, QStackedWidget, QSystemTrayIcon, QVBoxLayout, QWidget,
 )
 
 from engine.schemas import AnalyzeResult
@@ -35,10 +35,14 @@ NAV_ITEMS = [
     ("results", "Analysis", "fa5s.chart-bar"),
     ("history", "History", "fa5s.history"),
     ("compare", "Compare", "fa5s.exchange-alt"),
-    ("privacy", "Privacy", "fa5s.user-shield"),
+    ("privacy", "Privacy", "fa5s.lock"),
     ("settings", "Settings", "fa5s.cog"),
     ("about", "About", "fa5s.info-circle"),
 ]
+
+
+# Pages that don't manage their own scroll area.
+SCROLLING_PAGES = {"scan", "history", "settings", "about"}
 
 
 class MainWindow(QMainWindow):
@@ -161,7 +165,7 @@ class MainWindow(QMainWindow):
         root.addWidget(self.stack, stretch=1)
 
         self.home_page = HomePage(
-            on_start_scan=lambda: self.navigate("scan"),
+            on_start_scan=self.start_new_scan,
             on_view_scan=self._open_history_record,
             get_settings=lambda: self._settings,
             on_navigate=self.navigate,
@@ -172,7 +176,7 @@ class MainWindow(QMainWindow):
             show_toast=self._toast,
         )
         self.results_page = ResultsPage(
-            on_new_scan=lambda: self.navigate("scan"),
+            on_new_scan=self.start_new_scan,
             on_delete=self._on_delete_scan,
             show_toast=self._toast,
             on_upload_image=self._upload_from_analysis,
@@ -197,8 +201,13 @@ class MainWindow(QMainWindow):
             "settings": self.settings_page,
             "about": self.about_page,
         }
-        for page in self._pages.values():
-            self.stack.addWidget(page)
+        # Pages taller than the window scroll instead of stretching it: without
+        # this, one long page (Settings) forced every page's window height.
+        self._page_hosts = {}
+        for key, page in self._pages.items():
+            host = self._scroll_host(page) if key in SCROLLING_PAGES else page
+            self._page_hosts[key] = host
+            self.stack.addWidget(host)
 
         self.toast = Toast(central)
 
@@ -258,7 +267,16 @@ class MainWindow(QMainWindow):
         }
         storage.save_settings(self._settings)
 
+    @staticmethod
+    def _scroll_host(page: QWidget) -> QScrollArea:
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setWidget(page)
+        return scroll
+
     def _lock(self) -> None:
+        self.scan_page.release_camera()
         self.lock_screen.setGeometry(self.centralWidget().rect())
         self.lock_screen.show()
         self.lock_screen.raise_()
@@ -317,7 +335,7 @@ class MainWindow(QMainWindow):
 
     def _start_scan_from_tray(self) -> None:
         self._restore_from_tray()
-        self.navigate("scan")
+        self.start_new_scan()
 
     def _quit_app(self) -> None:
         self._save_window_geometry()
@@ -335,7 +353,7 @@ class MainWindow(QMainWindow):
         file_menu.addSeparator()
         new_scan_action = file_menu.addAction("New Scan")
         new_scan_action.setShortcut(QKeySequence("Ctrl+N"))
-        new_scan_action.triggered.connect(lambda: self.navigate("scan"))
+        new_scan_action.triggered.connect(self.start_new_scan)
         settings_action = file_menu.addAction("Settings")
         settings_action.setShortcut(QKeySequence("Ctrl+,"))
         settings_action.triggered.connect(lambda: self.navigate("settings"))
@@ -381,7 +399,7 @@ class MainWindow(QMainWindow):
         commands = []
         for key, label, _icon in NAV_ITEMS:
             commands.append((f"Go to {label}", lambda k=key: self.navigate(k)))
-        commands.append(("New Scan", lambda: self.navigate("scan")))
+        commands.append(("New Scan", self.start_new_scan))
         commands.append(("Toggle Theme", self._toggle_theme))
         if app_lock.has_pin():
             commands.append(("Lock Now", self._lock))
@@ -402,7 +420,7 @@ class MainWindow(QMainWindow):
         if self.lock_screen.isVisible():
             return
         commands = [(f"Go to {label}", lambda k=key: self.navigate(k)) for key, label, _icon in NAV_ITEMS]
-        commands.append(("New Scan", lambda: self.navigate("scan")))
+        commands.append(("New Scan", self.start_new_scan))
         commands.append(("Toggle Light/Dark Theme", self._toggle_theme_quick))
         if self._settings.get("app_lock_enabled", False) and app_lock.has_pin():
             commands.append(("Lock Now", self._lock))
@@ -426,7 +444,15 @@ class MainWindow(QMainWindow):
         LOG_DIR.mkdir(parents=True, exist_ok=True)
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(LOG_DIR)))
 
+    def start_new_scan(self, *_args) -> None:
+        """An explicit "start a scan" action: open the Scan page and switch the
+        camera on. Just opening the Scan tab never does."""
+        self.navigate("scan")
+        self.scan_page.camera.start_camera()
+
     def navigate(self, key: str) -> None:
+        if key != "scan" and self.stack.currentWidget() is self._page_hosts.get("scan"):
+            self.scan_page.release_camera()  # the camera is only on while you're scanning
         if key == "home":
             self.home_page.refresh()
         if key == "scan":
@@ -446,7 +472,7 @@ class MainWindow(QMainWindow):
                 image = cv2.imread(record.image_path) if record.image_path else None
                 self.results_page.show_record(record, image)
 
-        self.stack.setCurrentWidget(self._pages[key])
+        self.stack.setCurrentWidget(self._page_hosts[key])
         for k, btn in self._nav_buttons.items():
             active = k == key
             btn.setProperty("active", "true" if active else "false")
@@ -522,6 +548,7 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event) -> None:  # noqa: N802
         if self._settings.get("minimize_to_tray", False):
             event.ignore()
+            self.scan_page.release_camera()
             self.hide()
             if not self._tray_hint_shown:
                 self.tray_icon.showMessage(
