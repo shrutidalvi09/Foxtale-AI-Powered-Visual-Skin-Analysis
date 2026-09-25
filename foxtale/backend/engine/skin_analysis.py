@@ -33,6 +33,7 @@ import cv2
 import numpy as np
 
 from engine.calibration import CalibrationProfile
+from engine.features import _location, compute_features
 from engine.image_processing import FaceRegions
 from engine.schemas import CategoryResult, RegionObservation, SkinAnalysis
 
@@ -63,6 +64,7 @@ MAX_SPOT_MARKERS = 12  # per-photo cap on individually marked spots
 # Per-category level thresholds on the 0-1 score.
 LEVEL_CUTS = (0.15, 0.35, 0.60)
 
+PIMPLE_CONTRAST = 7.0  # a* excess above which a spot is called pimple-like
 REF_A_ABS = 13.0  # typical a* of healthy skin; absolute redness is measured above this
 
 
@@ -137,6 +139,8 @@ class Spot:
     cy: float
     area: float
     contrast: float  # a* excess over local skin
+    pustule: bool = False  # a pimple with a paler centre
+    kind: str = "pimple"  # "pimple" (inflamed, strongly red, compact) or "mark" (flatter, paler red blemish)
 
 
 @dataclass
@@ -154,6 +158,9 @@ class RegionMetrics:
     dryness_low_chroma: float = 0.0
     dryness_patchiness: float = 0.0
     shine_pct: float = 0.0
+    median_l: float = 0.0
+    median_b: float = 0.0
+    swatch_bgr: Tuple[float, float, float] = (0.0, 0.0, 0.0)
     tone_std_l: float = 0.0
     tone_std_ab: float = 0.0
     # 0-1 scores
@@ -206,7 +213,9 @@ def _find_spots(a_flat: np.ndarray, mask: np.ndarray, area_total: int) -> Tuple[
             continue
         cx, cy = centroids[i]
         contrast = float(excess[int(round(cy)), int(round(cx))]) if excess.size else 0.0
-        spots.append(Spot(cx=float(cx), cy=float(cy), area=float(area), contrast=contrast))
+        # strongly red, small-to-medium blobs look inflamed (pimple-like); paler or larger ones read as flat marks
+        kind = "pimple" if contrast >= PIMPLE_CONTRAST and area <= 0.012 * area_total else "mark"
+        spots.append(Spot(cx=float(cx), cy=float(cy), area=float(area), contrast=contrast, kind=kind))
         total_area += float(area)
     return spots, total_area
 
@@ -235,6 +244,9 @@ def measure_region(
     )
     if not m.usable:
         return m
+    m.median_l = float(np.median(L[mask_b]))
+    m.median_b = float(np.median(b[mask_b]))
+    m.swatch_bgr = tuple(float(np.median(crop_bgr[:, :, c][mask_b])) for c in range(3))  # type: ignore[assignment]
 
     # 1) divide out illumination gradients / skin-tone shading
     big = max(6.0, s / 4.0)
@@ -243,6 +255,16 @@ def measure_region(
 
     # 2) spots
     spots, spot_area = _find_spots(a_flat, mask_b, h * w)
+    for sp in spots:
+        if sp.kind != "pimple":
+            continue
+        r = max(2, int(np.sqrt(sp.area / np.pi)))
+        cx, cy = int(sp.cx), int(sp.cy)
+        yy, xx = np.ogrid[:h, :w]
+        d2 = (xx - cx) ** 2 + (yy - cy) ** 2
+        core, ring = d2 <= (0.6 * r) ** 2, (d2 > (1.1 * r) ** 2) & (d2 <= (2.0 * r) ** 2) & mask_b
+        if core.sum() >= 3 and ring.sum() >= 8:
+            sp.pustule = bool(np.median(L[core]) - np.median(L[ring]) > 3.0)
     m.spots = spots
     m.spot_area_pct = 100.0 * spot_area / max(1, n_skin)
     density = len(spots) / max(1.0, n_skin / 10000.0)  # spots per 10k skin pixels
@@ -318,6 +340,31 @@ def measure_region(
 
 
 # ---------------------------------------------------------------- pipeline
+
+# Individual Typology Angle bands (Chardon et al.), used only to describe the apparent tone in this photo.
+TONE_BANDS = [(55, "Very light"), (41, "Light"), (28, "Medium"), (10, "Tan"), (-30, "Brown"), (-999, "Deep")]
+
+
+def estimate_tone(usable: List["RegionMetrics"]) -> Optional[Dict[str, object]]:
+    """Apparent skin tone and undertone from the skin pixels of all analysed regions.
+
+    ITA = atan((L* - 50) / b*) describes how light or deep the skin looks; the hue angle of (a*, b*) hints at a
+    warm, neutral or cool/rosy undertone. Both depend on lighting and camera white balance, so this is an estimate
+    of how the skin appears in this photo, not a fixed property."""
+    if not usable:
+        return None
+    weights = np.array([m.skin_pixels for m in usable], dtype=np.float64)
+    L = float(np.average([m.median_l for m in usable], weights=weights))
+    a = float(np.average([m.mean_a for m in usable], weights=weights))
+    b = float(np.average([m.median_b for m in usable], weights=weights))
+    bgr = [float(np.average([m.swatch_bgr[c] for m in usable], weights=weights)) for c in range(3)]
+    ita = float(np.degrees(np.arctan2(L - 50.0, max(b, 1.0))))
+    label = next(name for floor, name in TONE_BANDS if ita > floor)
+    hue = float(np.degrees(np.arctan2(b, max(a, 0.1))))
+    undertone = "warm" if hue >= 62 else "cool" if hue <= 50 else "neutral"
+    swatch = "#%02x%02x%02x" % (int(bgr[2]), int(bgr[1]), int(bgr[0]))
+    return {"label": label, "ita": round(ita, 1), "undertone": undertone, "hue": round(hue, 1), "swatch": swatch}
+
 
 def _confidence(score: float, coverage: float) -> float:
     return round(min(0.95, max(0.35, 0.50 + 0.33 * coverage + 0.12 * min(score, 1.0))), 2)
@@ -395,6 +442,8 @@ def analyze_face(
         "skin_coverage_pct": round(100 * coverage, 1),
         "regions_analyzed": len(usable),
         "reference_a": round(ref_a, 2),
+        "pimple_count": sum(1 for m in usable for sp in m.spots if sp.kind == "pimple"),
+        "mark_count": sum(1 for m in usable for sp in m.spots if sp.kind == "mark"),
         "spot_area_pct": mean_of("spot_area_pct"),
         "redness_local_pct": mean_of("redness_local_pct"),
         "redness_excess_a": mean_of("redness_excess_a"),
@@ -416,10 +465,49 @@ def analyze_face(
         overall_score=overall,
         region_scores=region_scores,
         metrics=metrics,
+        skin_tone=estimate_tone(usable),
         engine_version=ENGINE_VERSION,
     )
 
-    return analysis, _build_observations(regions, usable, min_confidence)
+    observations = _build_observations(regions, usable, min_confidence)
+    if regions.image is not None and regions.box is not None and usable:
+        spots_all = [sp for m in usable for sp in m.spots]
+        spot_info = {
+            "pimples": sum(1 for sp in spots_all if sp.kind == "pimple"),
+            "pustules": sum(1 for sp in spots_all if sp.pustule),
+            "marks": sum(1 for sp in spots_all if sp.kind == "mark"),
+            "where": _location({m.region: len(m.spots) for m in usable}),
+        }
+        hotspots = {
+            "redness": _location({m.region: m.redness_score for m in usable if m.redness_score >= 0.15}),
+            "dryness": _location({m.region: m.dryness_score for m in usable if m.dryness_score >= 0.15}),
+            "oiliness": _location({m.region: m.oiliness_score for m in usable if m.oiliness_score >= 0.15}),
+        }
+        try:
+            detail, extra = compute_features(
+                regions.image, regions.box, skin_mask, spot_info, hotspots, eve_s, tex_s,
+            )
+        except Exception:  # noqa: BLE001 - detailed findings are additive; never lose the core analysis
+            detail, extra = {}, []
+        analysis.detail = detail
+        if detail and analysis.overall_score is not None:
+            # the extra findings also weigh on the overall score (up to about 15 points in total)
+            ac = detail.get("acne", {})
+            heads = _clip01((ac.get("blackheads", 0) + ac.get("whiteheads", 0)) / 12.0)
+            penalty = (0.07 * detail.get("dark_spots", {}).get("score", 0) + 0.04 * detail.get("pores", {}).get("score", 0)
+                     + 0.04 * (detail.get("under_eye", {}).get("score", 0) or 0) + 0.04 * detail.get("fine_lines", {}).get("score", 0)
+                     + 0.06 * heads)
+            analysis.overall_score = int(max(0, round(analysis.overall_score - 100 * SCORE_STRENGTH * penalty)))
+        centers = regions.centers
+        for e in extra:
+            label = min(centers, key=lambda n: (centers[n][0] - e["x"]) ** 2 + (centers[n][1] - e["y"]) ** 2) if centers else "face"
+            conf = _confidence(e["score"], coverage)
+            if conf >= min_confidence:
+                observations.append(RegionObservation(
+                    region=REGION_LABELS.get(label, label.upper()), category=e["category"],
+                    observation=e["observation"], confidence=conf, x=e["x"], y=e["y"],
+                ))
+    return analysis, observations
 
 
 def _build_observations(
@@ -450,8 +538,10 @@ def _build_observations(
             ranked = sorted(m.spots, key=lambda sp: -sp.contrast)
             if origin and img_w and img_h:
                 for sp in ranked[:4]:
+                    what = ("Pimple-like spot, inflamed and red" if sp.kind == "pimple"
+                            else "Flat red mark or blemish")
                     add(label, "Acne-like spots",
-                        f"Small reddish spot (about {sp.contrast:.0f} units redder than nearby skin)",
+                        f"{what} (about {sp.contrast:.0f} units redder than nearby skin)",
                         min(1.0, 0.3 + sp.contrast / 14.0),
                         (origin[0] + sp.cx) / img_w, (origin[1] + sp.cy) / img_h, cov, bucket=spot_markers)
             else:
@@ -474,6 +564,36 @@ def _build_observations(
     spot_markers.sort(key=lambda t: -t[0])
     observations.extend(obs for _, obs in spot_markers[:MAX_SPOT_MARKERS])
     return observations
+
+
+def quick_spots(regions: FaceRegions) -> List[Dict[str, float]]:
+    """Fast spot-only pass for the live camera preview: normalized image coordinates of spotted acne."""
+    img_w, img_h = regions.image_size
+    out: List[Dict[str, float]] = []
+    if not (img_w and img_h):
+        return out
+    for name, crop in regions.crops.items():
+        origin = regions.origins.get(name)
+        if origin is None or crop.shape[0] < 16 or crop.shape[1] < 16:
+            continue
+        lab = _to_lab(crop)
+        mask_b = skin_mask(lab)
+        n_skin = int(mask_b.sum())
+        if n_skin < 300:
+            continue
+        mask = mask_b.astype(np.float32)
+        a = lab[:, :, 1]
+        s = float(min(crop.shape[:2]))
+        a_flat = a - _masked_blur(a, mask, max(6.0, s / 4.0)) + float(np.median(a[mask_b]))
+        spots, _ = _find_spots(a_flat, mask_b, crop.shape[0] * crop.shape[1])
+        for sp in spots:
+            out.append({
+                "x": round((origin[0] + sp.cx) / img_w, 4), "y": round((origin[1] + sp.cy) / img_h, 4),
+                "r": round(max(0.012, (sp.area ** 0.5) / img_w * 1.6), 4), "kind": sp.kind,
+                "contrast": round(sp.contrast, 1),
+            })
+    out.sort(key=lambda d: -d["contrast"])
+    return out[:24]
 
 
 def run_engine_self_test(patch: np.ndarray) -> None:

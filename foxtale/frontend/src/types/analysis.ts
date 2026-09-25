@@ -17,6 +17,7 @@ export interface SkinAnalysis {
   overall_score?: number | null;
   region_scores?: Record<string, Record<string, number>>;
   metrics?: Record<string, number>;
+  skin_tone?: { label: string; ita: number; undertone: string; hue: number; swatch: string } | null;
   engine_version?: number;
 }
 
@@ -86,7 +87,7 @@ export interface CategoryRow {
 export interface Suggestion {
   id: string;
   name: string;
-  step: "cleanse" | "treat" | "moisturize" | "protect";
+  step: "cleanse" | "treat" | "eye" | "moisturize" | "protect";
   stepLabel: string;
   when: string;
   ingredients: string[];
@@ -99,11 +100,34 @@ export interface Suggestion {
   price: number | null;
   priceSource: "foxtale" | "retailer_mrp";
   shape: "tube" | "dropper" | "jar";
+  variantId: string | null;
   owned: boolean;
   image: string | null;
 }
 
+export interface SkinProfile {
+  skinType: string;
+  skinTypeReason: string;
+  tone: { label: string; undertone: string; swatch: string; note: string | null } | null;
+  spots: { total: number; pimples: number; marks: number; level: SeverityLevel };
+  texture: { level: SeverityLevel };
+  toneEvenness: { level: SeverityLevel | null };
+}
+
+export interface Finding {
+  key: string;
+  icon: string;
+  category: string;
+  headline: string;
+  level: SeverityLevel | null;
+  note: string;
+  where: string;
+  measured: boolean;
+}
+
 export interface Report {
+  findings: Finding[];
+  profile: SkinProfile;
   overallScore: number | null;
   scoreLabel: string | null;
   summary: string;
@@ -119,8 +143,11 @@ export interface Report {
   areas: Record<string, string>;
   skincare: {
     skinType: string;
+    tone?: string | null;
     concerns: { key: string; label: string }[];
     suggestions: Suggestion[];
+    notes: string[];
+    conflicts: { severity: "avoid" | "caution" | "info"; title: string; detail: string; fix: string; products: string[] }[];
     cost: { total: number; unpriced: number };
     priceNote: string;
     catalogDate: string;
@@ -137,6 +164,7 @@ export interface Settings {
   onboarding_complete: boolean;
   whatsapp_auto?: boolean;
   whatsapp_registered?: boolean;
+  wishlist?: string[];
 }
 
 export interface Insights {
@@ -148,6 +176,15 @@ export interface Insights {
   daysSinceLast: number | null;
   trends: { label: string; direction: "improved" | "worsened" | "stable"; earlyLevel: string; recentLevel: string }[];
   scoreSeries: { timestamp: string; score: number | null }[];
+  featureSeries: {
+    timestamp: string;
+    overall: number | null;
+    acne: number | null;
+    darkSpots: number | null;
+    uniformity: number | null;
+    poresScore: number | null;
+    redness: number;
+  }[];
   mostFrequentRegion: string | null;
   mostFrequentCategory: string | null;
   headline: string;

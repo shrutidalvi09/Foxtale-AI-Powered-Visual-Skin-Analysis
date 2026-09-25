@@ -32,9 +32,16 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
     "whatsapp_verified": False,
     "whatsapp_auto": True,
     "whatsapp_skipped": False,
+    "profile": {},  # questionnaire answers (see main.ProfileBody)
+    "wishlist": [],  # product ids the user hearted
+    "weekly_digest": False,  # weekly WhatsApp check-in
+    "digest_day": 6,  # 0 = Monday ... 6 = Sunday
+    "digest_hour": 9,
+    "digest_last_sent": "",  # set by the server only
+    "location": {},  # {name, lat, lon} of the city used for skin weather
 }
 
-SERVER_CONTROLLED = {"whatsapp_number", "whatsapp_verified", "whatsapp_skipped"}
+SERVER_CONTROLLED = {"whatsapp_number", "whatsapp_verified", "whatsapp_skipped", "digest_last_sent"}
 
 ROUTINE_OPTIONS = ["Cleanser", "Moisturiser", "Sunscreen", "Treatment", "Exfoliator", "Other"]
 ENVIRONMENT_OPTIONS = ["Travel", "Outdoor exposure", "High humidity", "Low humidity"]
@@ -55,6 +62,12 @@ def _connect() -> sqlite3.Connection:
         "journal_json TEXT, deleted_at TEXT)"
     )
     conn.execute("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value_json TEXT NOT NULL)")
+    conn.execute("CREATE TABLE IF NOT EXISTS diary (day TEXT PRIMARY KEY, data_json TEXT NOT NULL)")
+    conn.execute("CREATE TABLE IF NOT EXISTS product_usage (product_id TEXT PRIMARY KEY, started_at TEXT NOT NULL)")
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS routine_logs (day TEXT NOT NULL, slot TEXT NOT NULL, product_id TEXT NOT NULL, "
+        "PRIMARY KEY (day, slot, product_id))"
+    )
     conn.execute(
         "CREATE TABLE IF NOT EXISTS deliveries (scan_id TEXT PRIMARY KEY, status TEXT NOT NULL, "
         "error TEXT, updated_at TEXT NOT NULL)"
@@ -289,6 +302,9 @@ def wipe_all() -> None:
         conn.execute("DELETE FROM scans")
         conn.execute("DELETE FROM settings")
         conn.execute("DELETE FROM deliveries")
+        conn.execute("DELETE FROM routine_logs")
+        conn.execute("DELETE FROM product_usage")
+        conn.execute("DELETE FROM diary")
     conn.close()
 
 
@@ -353,3 +369,79 @@ def get_delivery(scan_id: str) -> Optional[Dict[str, Any]]:
     row = conn.execute("SELECT status, error, updated_at FROM deliveries WHERE scan_id = ?", (scan_id,)).fetchone()
     conn.close()
     return {"status": row[0], "error": row[1], "updatedAt": row[2]} if row else None
+
+
+# ------------------------------------------------------------------ routine
+
+def routine_toggle(day: str, slot: str, product_id: str, done: bool) -> None:
+    conn = _connect()
+    with conn:
+        if done:
+            conn.execute("INSERT OR IGNORE INTO routine_logs (day, slot, product_id) VALUES (?, ?, ?)", (day, slot, product_id))
+        else:
+            conn.execute("DELETE FROM routine_logs WHERE day = ? AND slot = ? AND product_id = ?", (day, slot, product_id))
+    conn.close()
+
+
+def routine_days(since: str) -> Dict[str, Dict[str, List[str]]]:
+    """{day: {"AM": [product ids], "PM": [...]}} for every logged day on or after `since` (YYYY-MM-DD)."""
+    conn = _connect()
+    rows = conn.execute("SELECT day, slot, product_id FROM routine_logs WHERE day >= ? ORDER BY day", (since,)).fetchall()
+    conn.close()
+    out: Dict[str, Dict[str, List[str]]] = {}
+    for day, slot, pid in rows:
+        out.setdefault(day, {"AM": [], "PM": []})[slot].append(pid)
+    return out
+
+
+# ------------------------------------------------------------ product usage
+
+def usage_all() -> Dict[str, str]:
+    conn = _connect()
+    rows = conn.execute("SELECT product_id, started_at FROM product_usage").fetchall()
+    conn.close()
+    return {pid: started for pid, started in rows}
+
+
+def usage_sync(owned_ids: List[str]) -> None:
+    """Keep a start date for every product marked "I use this": new ones start now, removed ones are dropped."""
+    now = datetime.now().isoformat()
+    conn = _connect()
+    with conn:
+        current = {r[0] for r in conn.execute("SELECT product_id FROM product_usage")}
+        for pid in owned_ids:
+            if pid not in current:
+                conn.execute("INSERT INTO product_usage (product_id, started_at) VALUES (?, ?)", (pid, now))
+        for pid in current - set(owned_ids):
+            conn.execute("DELETE FROM product_usage WHERE product_id = ?", (pid,))
+    conn.close()
+
+
+def usage_set_start(product_id: str, started_at: str) -> None:
+    conn = _connect()
+    with conn:
+        conn.execute("INSERT OR REPLACE INTO product_usage (product_id, started_at) VALUES (?, ?)", (product_id, started_at))
+    conn.close()
+
+
+# -------------------------------------------------------------------- diary
+
+def diary_all(since: str = "0000-00-00") -> Dict[str, Dict[str, Any]]:
+    conn = _connect()
+    rows = conn.execute("SELECT day, data_json FROM diary WHERE day >= ? ORDER BY day", (since,)).fetchall()
+    conn.close()
+    return {day: json.loads(data) for day, data in rows}
+
+
+def diary_put(day: str, data: Dict[str, Any]) -> None:
+    conn = _connect()
+    with conn:
+        conn.execute("INSERT OR REPLACE INTO diary (day, data_json) VALUES (?, ?)", (day, json.dumps(data)))
+    conn.close()
+
+
+def diary_delete(day: str) -> None:
+    conn = _connect()
+    with conn:
+        conn.execute("DELETE FROM diary WHERE day = ?", (day,))
+    conn.close()

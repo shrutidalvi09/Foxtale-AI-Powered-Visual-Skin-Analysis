@@ -86,7 +86,15 @@ Nothing is sent; the verification code and each report are printed in the backen
      Hi! Your Foxtale skin analysis from {{4}} is ready. Overall score: {{1}}. {{2}} Suggested routine: {{3}} The full
      PDF report is attached. This is a visual observation, not a medical diagnosis.
      ```
-3. Copy `backend/.env.example` to `backend/.env`, fill in `WHATSAPP_TOKEN` and `WHATSAPP_PHONE_NUMBER_ID`
+3. For the **weekly check-in**, create a third template, `foxtale_weekly`, category **Utility**, with this body (4 variables):
+
+     ```text
+     Hi {{1}}, here is your Foxtale week. {{2}} {{3}} Tip: {{4}}
+     ```
+
+   The check-in is sent by a scheduler inside the backend, so it only goes out while the backend is running (if the
+   server was off on your chosen day, it sends the next time it is up). Turn it on under Settings.
+4. Copy `backend/.env.example` to `backend/.env`, fill in `WHATSAPP_TOKEN` and `WHATSAPP_PHONE_NUMBER_ID`
    (and the template names if you chose different ones), then restart the backend.
 
 Template messages are required because WhatsApp only allows free-form messages inside 24 hours of the user's last

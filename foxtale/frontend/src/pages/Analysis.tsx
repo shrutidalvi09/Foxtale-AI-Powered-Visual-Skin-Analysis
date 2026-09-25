@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   BarChart3, Camera, ChevronLeft, ChevronRight, ClipboardCheck, Download, Eye, FileText, Lightbulb, Lock, NotebookPen,
-  Plus, Star, Trash2, Sparkles, LayoutGrid, Info,
+  Plus, Star, Trash2, Sparkles, LayoutGrid, Info, ScanSearch,
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import {
@@ -11,11 +11,11 @@ import {
 import type { Insights, Report, Scan } from "../types/analysis";
 import { LEVEL_SCORE, formatDate, scoreColor } from "../lib/format";
 import { Disclaimer, EmptyState, IconBadge, LevelPill, PageHeader, ScoreBar, ScoreRing, SectionTitle } from "../components/ui";
-import { Reveal, Skeleton, usePulseKey } from "../lib/motion";
+import { CountUp, Reveal, Skeleton, usePulseKey } from "../lib/motion";
 import PhotoPanel, { RegionDonut } from "../components/PhotoPanel";
 import { DeliveryStatus } from "../components/WhatsApp";
 import Skincare from "../components/Skincare";
-import type { RegionObservation } from "../types/analysis";
+import type { Finding, RegionObservation } from "../types/analysis";
 
 const CARD_KEYS = ["Acne-like spots", "Redness", "Texture", "Dryness indicators"];
 
@@ -57,6 +57,114 @@ function SectionNav({ targets }: { targets: NavTarget[] }) {
   );
 }
 
+function ProfileTiles({ profile }: { profile: Report["profile"] }) {
+  const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+  return (
+    <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* skin type */}
+      <Reveal index={0} className="h-full">
+        <div className="card lift h-full p-5">
+          <p className="label-caps">Skin type</p>
+          <p className="mt-2 text-2xl font-extrabold text-ink">{cap(profile.skinType)}</p>
+          <p className="mt-2 text-[12.5px] leading-relaxed text-muted">{profile.skinTypeReason}</p>
+        </div>
+      </Reveal>
+      {/* skin tone */}
+      <Reveal index={1} className="h-full">
+        <div className="card lift h-full p-5">
+          <p className="label-caps">Skin tone</p>
+          {profile.tone ? (
+            <>
+              <div className="mt-2 flex items-center gap-3">
+                <span className="pop h-11 w-11 shrink-0 rounded-full border-2 border-card shadow-card ring-1 ring-line" style={{ background: profile.tone.swatch }} aria-label={`Measured skin colour ${profile.tone.swatch}`} />
+                <div>
+                  <p className="text-2xl font-extrabold leading-tight text-ink">{profile.tone.label}</p>
+                  <p className="text-xs font-semibold text-muted">{cap(profile.tone.undertone)} undertone</p>
+                </div>
+              </div>
+              {profile.tone.note && <p className="mt-2 text-[12px] leading-relaxed text-muted">{profile.tone.note}</p>}
+            </>
+          ) : <p className="mt-2 text-sm text-muted">Not measured for this scan.</p>}
+        </div>
+      </Reveal>
+      {/* spots */}
+      <Reveal index={2} className="h-full">
+        <div className="card lift h-full p-5">
+          <p className="label-caps">Acne &amp; pimples</p>
+          <div className="mt-2 flex items-end gap-2">
+            <p className="text-3xl font-extrabold leading-none text-ink"><CountUp value={profile.spots.total} /></p>
+            <span className="pb-0.5 text-sm text-muted">spotted</span>
+            <LevelPill level={profile.spots.level} className="ml-auto" />
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold">
+            <span className="pill bg-rose-50 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300">{profile.spots.pimples} pimple-like</span>
+            <span className="pill bg-amber-50 text-amber-800 dark:bg-amber-500/15 dark:text-amber-200">{profile.spots.marks} flat marks</span>
+          </div>
+          <p className="mt-2 text-[12px] text-muted">Pimple-like spots are small, strongly red and look inflamed. Marks are flatter and paler.</p>
+        </div>
+      </Reveal>
+      {/* texture + evenness */}
+      <Reveal index={3} className="h-full">
+        <div className="card lift h-full p-5">
+          <p className="label-caps">Texture &amp; evenness</p>
+          <div className="mt-3 space-y-2.5 text-sm">
+            <div className="flex items-center justify-between"><span className="font-bold text-ink">Skin texture</span><LevelPill level={profile.texture.level} /></div>
+            {profile.toneEvenness.level && (
+              <div className="flex items-center justify-between"><span className="font-bold text-ink">Tone evenness</span><LevelPill level={profile.toneEvenness.level} /></div>
+            )}
+          </div>
+          <p className="mt-3 text-[12px] text-muted">Texture is how rough the surface looks at pore scale; evenness is how much colour and brightness vary.</p>
+        </div>
+      </Reveal>
+    </div>
+  );
+}
+
+const FINDING_GROUP: Record<string, string> = {
+  acne: "acne", dark_spots: "dark", under_eye: "eye", fine_lines: "lines", sun_spots: "dark", scars: "dark",
+  redness: "redness", texture: "texture", dryness: "dryness", oiliness: "oiliness", uniformity: "tone",
+};
+
+function FindingRow({ f, index, onOpen }: { f: Finding; index: number; onOpen: (key: string) => void }) {
+  const clickable = !!FINDING_GROUP[f.key] && f.measured;
+  const pct = f.key === "uniformity" || f.key === "symmetry" ? Number(f.headline.match(/(\d+)%/)?.[1] ?? NaN) : NaN;
+  return (
+    <Reveal index={index} className="h-full">
+      <button
+        type="button" disabled={!clickable} onClick={() => onOpen(f.key)}
+        className={`card lift flex h-full w-full items-start gap-3 p-4 text-left ${clickable ? "cursor-pointer hover:border-fox-300" : "cursor-default"} ${f.measured ? "" : "opacity-70"}`}
+        aria-label={clickable ? `${f.headline}. Show on photo` : f.headline}
+      >
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-soft text-xl" aria-hidden>{f.icon}</span>
+        <span className="min-w-0 flex-1">
+          <span className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-[14px] font-extrabold leading-snug text-ink">{f.headline}</span>
+            {f.level && <LevelPill level={f.level} />}
+          </span>
+          {!Number.isNaN(pct) && <span className="mt-2 block"><ScoreBar score={pct} /></span>}
+          <span className="mt-1.5 block text-[12px] leading-relaxed text-muted">{f.note}</span>
+          {clickable && f.level && f.level !== "minimal" && <span className="mt-1.5 block text-[11.5px] font-bold text-fox-text dark:text-fox-300">Show on photo →</span>}
+        </span>
+      </button>
+    </Reveal>
+  );
+}
+
+function DetailedFindings({ findings, onOpen }: { findings: Finding[]; onOpen: (key: string) => void }) {
+  return (
+    <div>
+      <SectionTitle title="Detailed Findings" subtitle="What the camera looked for, how much it found, and where. Tap a card to see it on your photo." icon={<ScanSearch size={18} />} />
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {findings.map((f, i) => <FindingRow key={f.key} f={f} index={i} onOpen={onOpen} />)}
+      </div>
+      <p className="mt-4 text-[11.5px] leading-relaxed text-muted">
+        These are estimates from one photo using computer vision, not a clinical assessment. Lighting, makeup, hair, glasses and head angle
+        change them, and things like scarring depth or puffiness need more than a flat photo to judge.
+      </p>
+    </div>
+  );
+}
+
 function AnalysisSkeleton() {
   return (
     <div className="space-y-5" aria-busy="true" aria-label="Loading your analysis">
@@ -81,6 +189,8 @@ export default function Analysis() {
   const [report, setReport] = useState<Report | null>(null);
   const [insights, setInsights] = useState<Insights | null>(null);
   const [selected, setSelected] = useState<RegionObservation | null>(null);
+  const [photoGroup, setPhotoGroup] = useState<string>("all");
+  const findingsRef = useRef<HTMLElement | null>(null);
   const [note, setNote] = useState("");
   const [options, setOptions] = useState<{ routine: string[]; environment: string[] }>({ routine: [], environment: [] });
   const [pdfBusy, setPdfBusy] = useState(false);
@@ -159,6 +269,12 @@ export default function Analysis() {
     [owned, updateSettings]
   );
 
+  const toggleWish = useCallback((productId: string) => {
+    const list = settings.wishlist ?? [];
+    updateSettings({ wishlist: list.includes(productId) ? list.filter((p) => p !== productId) : [...list, productId] });
+    toast(list.includes(productId) ? "Removed from wishlist" : "Saved to your wishlist");
+  }, [settings.wishlist, updateSettings, toast]);
+
   const update = async (patch: Parameters<typeof patchScan>[1]) => {
     if (!scan || !scan.persisted) return;
     try {
@@ -228,6 +344,7 @@ export default function Analysis() {
   }
 
   const navTargets: NavTarget[] = [
+    { key: "findings", label: "Findings", icon: ScanSearch, ref: findingsRef },
     { key: "report", label: "Report", icon: ClipboardCheck, ref: reportRef },
     { key: "skincare", label: "Skincare", icon: Sparkles, ref: skincareRef },
     { key: "photo", label: "Photo & regions", icon: Camera, ref: photoRef },
@@ -325,6 +442,21 @@ export default function Analysis() {
         </Reveal>
       </div>
 
+      {report && <ProfileTiles profile={report.profile} />}
+
+      <Reveal as="section" innerRef={findingsRef} className="card mt-6 scroll-mt-24 p-5 sm:p-6">
+        {report ? (
+          <DetailedFindings
+            findings={report.findings}
+            onOpen={(key) => {
+              setPhotoGroup(FINDING_GROUP[key] ?? "all");
+              setSelected(null);
+              setTimeout(() => photoRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
+            }}
+          />
+        ) : <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{[0, 1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-28" />)}</div>}
+      </Reveal>
+
       {/* Skin health report */}
       <Reveal as="section" innerRef={reportRef} className="card mt-6 scroll-mt-24 p-5 sm:p-6">
         <SectionTitle title="Skin Health Report" subtitle="Measured from the visible skin in your photo. Not a medical diagnosis." icon={<ClipboardCheck size={18} />} />
@@ -375,13 +507,13 @@ export default function Analysis() {
       <Reveal as="section" innerRef={skincareRef} className="card mt-6 scroll-mt-24 p-5 sm:p-6">
         <SectionTitle title="Recommended Skincare" subtitle="A simple Foxtale routine matched to what your scan measured, and why each step should help." icon={<Sparkles size={18} />} />
         <div className="mt-4">
-          {report ? <Skincare skincare={report.skincare} onOwned={setOwned} /> : <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-busy="true">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-72" />)}</div>}
+          {report ? <Skincare skincare={report.skincare} onOwned={setOwned} wishlist={settings.wishlist ?? []} onWish={toggleWish} /> : <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-busy="true">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-72" />)}</div>}
         </div>
       </Reveal>
 
       {/* Photo + regions */}
       <Reveal as="section" innerRef={photoRef} className="mt-6 grid scroll-mt-24 gap-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
-        <div className="card p-5"><PhotoPanel image={image} regions={scan.regions} selected={selected} onSelect={setSelected} /></div>
+        <div className="card p-5"><PhotoPanel image={image} regions={scan.regions} selected={selected} onSelect={setSelected} group={photoGroup} onGroupChange={setPhotoGroup} /></div>
         <div className="space-y-5">
           <div className="card p-5">
             <SectionTitle title="Visible Observation" subtitle={detail} icon={<Eye size={18} />} />

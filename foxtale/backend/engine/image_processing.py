@@ -1,7 +1,7 @@
 """Face preprocessing: normalizing and splitting the face into regions."""
 
 from dataclasses import dataclass, field
-from typing import Dict, Tuple
+from typing import Dict, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -16,6 +16,9 @@ class FaceRegions:
     # coordinates for on-photo markers.
     origins: Dict[str, Tuple[int, int]] = field(default_factory=dict)
     image_size: Tuple[int, int] = (0, 0)  # (width, height)
+    # The analysed photo and face box, for detectors that need more than the five crops (eyes, lines, symmetry).
+    image: Optional[np.ndarray] = None
+    box: Optional[Tuple[int, int, int, int]] = None
 
 
 def normalize(image: np.ndarray) -> np.ndarray:
@@ -55,7 +58,7 @@ def split_regions(image: np.ndarray, box: Tuple[int, int, int, int]) -> FaceRegi
         centers[name] = (((bx0 + bx1) / 2) / img_w, ((by0 + by1) / 2) / img_h)
         origins[name] = (bx0, by0)
 
-    return FaceRegions(crops=crops, centers=centers, origins=origins, image_size=(img_w, img_h))
+    return FaceRegions(crops=crops, centers=centers, origins=origins, image_size=(img_w, img_h), image=image, box=tuple(box))  # type: ignore[arg-type]
 
 
 def forehead_calibration_patch(image: np.ndarray, box: Tuple[int, int, int, int]) -> np.ndarray:

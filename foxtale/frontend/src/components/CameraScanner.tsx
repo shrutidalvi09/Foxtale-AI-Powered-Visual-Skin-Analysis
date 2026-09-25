@@ -1,5 +1,7 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
-import { AlertTriangle, Camera, ImagePlus, RotateCcw, Sparkles, Video, VideoOff } from "lucide-react";
+import { AlertTriangle, Camera, ImagePlus, RotateCcw, ScanSearch, Sparkles, Video, VideoOff } from "lucide-react";
+import { liveScan } from "../services/api";
+import type { LiveResult } from "../services/api";
 
 const WARMUP_MIN_FRAMES = 8;
 const WARMUP_MIN_LEVEL = 12;
@@ -83,6 +85,26 @@ const CameraScanner = forwardRef<CameraScannerHandle, Props>(function CameraScan
   const [capturing, setCapturing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [flash, setFlash] = useState(0);
+  const [live, setLive] = useState<LiveResult | null>(null);
+  const capturingRef = useRef(false);
+  const okStreak = useRef(0);
+  const takeRef = useRef<(() => void) | null>(null);
+  const [auto, setAuto] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("foxtale_autocapture") === "on";
+    } catch {
+      return false;
+    }
+  });
+  const autoRef = useRef(auto);
+  useEffect(() => {
+    autoRef.current = auto;
+    try {
+      localStorage.setItem("foxtale_autocapture", auto ? "on" : "off");
+    } catch {
+      // ignore
+    }
+  }, [auto]);
 
   const stop = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -134,6 +156,54 @@ const CameraScanner = forwardRef<CameraScannerHandle, Props>(function CameraScan
 
   useEffect(() => () => stop(), [stop]);
 
+  // Live spot check: every ~0.7 s a small copy of the frame goes to the local server, which answers with the
+  // face box and any spots it can see. One request at a time; if the server is unreachable the preview just stays plain.
+  useEffect(() => {
+    capturingRef.current = capturing;
+  }, [capturing]);
+
+  useEffect(() => {
+    if (state !== "live" || !ready) {
+      setLive(null);
+      return;
+    }
+    let stopped = false;
+    let inFlight = false;
+    const ctrl = new AbortController();
+    const tick = async () => {
+      const video = videoRef.current;
+      if (stopped || inFlight || capturingRef.current || !video || video.videoWidth === 0) return;
+      inFlight = true;
+      try {
+        const blob = await new Promise<Blob | null>((r) => drawSquare(video, 384).toBlob(r, "image/jpeg", 0.7));
+        if (blob) {
+          const res = await liveScan(blob, ctrl.signal);
+          if (!stopped) {
+            setLive(res);
+            const c = res.checks;
+            const allOk = !!res.face && !!c && c.lighting === "ok" && c.distance === "ok" && c.centered === "ok" && c.sharpness === "ok";
+            okStreak.current = allOk ? okStreak.current + 1 : 0;
+            if (autoRef.current && okStreak.current >= 3 && !capturingRef.current) {
+              okStreak.current = 0;
+              takeRef.current?.();
+            }
+          }
+        }
+      } catch {
+        // preview only: ignore errors
+      } finally {
+        inFlight = false;
+      }
+    };
+    tick();
+    const id = setInterval(tick, 700);
+    return () => {
+      stopped = true;
+      ctrl.abort();
+      clearInterval(id);
+    };
+  }, [state, ready]);
+
   const takePhoto = useCallback(async () => {
     const video = videoRef.current;
     if (!video || capturing) return;
@@ -160,6 +230,10 @@ const CameraScanner = forwardRef<CameraScannerHandle, Props>(function CameraScan
     stop();
     setCapturing(false);
   }, [capturing, countdown, onCapture, stop]);
+
+  takeRef.current = () => {
+    void takePhoto();
+  };
 
   const onFile = (file: File | undefined) => {
     if (!file) return;
@@ -216,9 +290,32 @@ const CameraScanner = forwardRef<CameraScannerHandle, Props>(function CameraScan
                 )}
               </div>
             </div>
+            {ready && live?.face && (
+              <div
+                className="pointer-events-none absolute rounded-2xl border-2 border-emerald-400/90 shadow-[0_0_18px_rgba(52,211,153,0.45)] transition-all duration-300"
+                style={{ left: `${(1 - live.face.x - live.face.w) * 100}%`, top: `${live.face.y * 100}%`, width: `${live.face.w * 100}%`, height: `${live.face.h * 100}%` }}
+                aria-hidden
+              />
+            )}
+            {ready && live?.spots.map((sp, i) => (
+              <span
+                key={`${i}-${Math.round(sp.x * 100)}-${Math.round(sp.y * 100)}`} aria-hidden
+                className={`pop pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-2 ${sp.kind === "pimple" ? "border-rose-400 bg-rose-400/25" : "border-amber-300 bg-amber-300/20"}`}
+                style={{ left: `${(1 - sp.x) * 100}%`, top: `${sp.y * 100}%`, width: `${Math.max(sp.r * 200, 3.5)}%`, aspectRatio: "1", transition: "left .35s ease, top .35s ease" }}
+              />
+            ))}
+            {ready && (
+              <div className="pointer-events-none absolute left-3 top-3 flex items-center gap-2 rounded-full bg-black/60 px-3 py-1.5 text-[11px] font-bold text-white backdrop-blur">
+                <ScanSearch size={13} className="text-fox-300" />
+                {live?.face
+                  ? live.spots.length === 0 ? "Face found · no spots spotted"
+                    : `${live.spots.filter((s) => s.kind === "pimple").length} pimple-like · ${live.spots.filter((s) => s.kind === "mark").length} marks spotted`
+                  : "Looking for your face..."}
+              </div>
+            )}
             <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full bg-black/60 px-4 py-1.5 text-xs font-semibold text-white backdrop-blur">
               <Sparkles size={14} className="text-fox-300" />
-              {ready ? "Position your face inside the frame" : "Getting the camera ready..."}
+              {!ready ? "Getting the camera ready..." : live?.message ?? "Live preview · the full analysis runs when you capture"}
             </div>
             {count !== null && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/30">
@@ -228,6 +325,27 @@ const CameraScanner = forwardRef<CameraScannerHandle, Props>(function CameraScan
           </>
         )}
       </div>
+
+      {state === "live" && ready && (
+        <div className="flex w-full max-w-[520px] flex-wrap justify-center gap-2" aria-live="polite">
+          {([
+            ["Lighting", live?.checks?.lighting, { too_dark: "Add more light", too_bright: "Too bright, reduce light" }],
+            ["Distance", live?.checks?.distance, { too_far: "Move closer", too_close: "Move back" }],
+            ["Position", live?.checks?.centered, { left: "Move left", right: "Move right", up: "Move down", down: "Move up" }],
+            ["Sharpness", live?.checks?.sharpness, { blurry: "Hold still" }],
+          ] as [string, string | undefined, Record<string, string>][]).map(([label, value, hints]) => {
+            const known = live?.face && value;
+            const ok = known && value === "ok";
+            return (
+              <span key={label} className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold transition-colors ${
+                !known ? "border-line text-muted" : ok ? "border-emerald-400 bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300" : "border-amber-400 bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-200"
+              }`}>
+                {known ? (ok ? "✓" : "!") : "·"} {known && !ok ? hints[value as string] ?? label : label}
+              </span>
+            );
+          })}
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center justify-center gap-3">
         {capturedImage ? (
@@ -249,6 +367,10 @@ const CameraScanner = forwardRef<CameraScannerHandle, Props>(function CameraScan
             <button className="btn-soft" onClick={stop} disabled={capturing}>
               <VideoOff size={16} /> Stop Camera
             </button>
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-muted">
+              <input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} className="h-4 w-4 accent-fox-500" />
+              Auto-capture when ready
+            </label>
           </>
         ) : (
           <>

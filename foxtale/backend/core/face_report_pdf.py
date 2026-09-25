@@ -207,23 +207,23 @@ def build_face_report(
     else:
         r.y -= 4 * mm
 
-    # ---- category snapshot
-    r.heading("Skin Snapshot")
-    for row in rc.category_rows(analysis):
+    # ---- detailed findings
+    r.heading("Detailed Findings")
+    findings = rc.detail_rows(analysis)
+    for row in findings:
         r.ensure(15 * mm)
         top = r.y
         c.setFillColor(SOFT)
         c.roundRect(MARGIN, top - 11.5 * mm, CONTENT_W, 12.5 * mm, 2 * mm, stroke=0, fill=1)
         c.setFillColor(INK)
         c.setFont("Helvetica-Bold", 10)
-        c.drawString(MARGIN + 3 * mm, top - 4.3 * mm, row.label)
+        c.drawString(MARGIN + 3 * mm, top - 4.3 * mm, r_clip(c, str(row["headline"]), 105 * mm, 10, "Helvetica-Bold"))
         c.setFillColor(MUTED)
-        c.setFont("Helvetica", 8)
-        c.drawString(MARGIN + 3 * mm, top - 9 * mm, r_clip(c, row.measurement, 105 * mm, 8))
-        r.pill(PAGE_W - MARGIN - 28 * mm - 24 * mm, top - 5.6 * mm, row.level)
-        c.setFillColor(MUTED)
-        c.setFont("Helvetica", 8.5)
-        c.drawRightString(PAGE_W - MARGIN - 3 * mm, top - 5 * mm, f"{int(row.confidence * 100)}% confidence")
+        c.setFont("Helvetica", 7.8)
+        detail = str(row["note"]) if not row["where"] else f"{row['note']}"
+        c.drawString(MARGIN + 3 * mm, top - 9 * mm, r_clip(c, detail, 128 * mm, 7.8))
+        if row["level"]:
+            r.pill(PAGE_W - MARGIN - 28 * mm - 4 * mm, top - 5.6 * mm, str(row["level"]))
         r.y -= 14 * mm
     r.y -= 6 * mm
 
@@ -321,9 +321,9 @@ def build_face_report(
     r.finish()
 
 
-def r_clip(c: canvas.Canvas, text: str, max_width: float, size: float) -> str:
-    if c.stringWidth(text, "Helvetica", size) <= max_width:
+def r_clip(c: canvas.Canvas, text: str, max_width: float, size: float, font: str = "Helvetica") -> str:
+    if c.stringWidth(text, font, size) <= max_width:
         return text
-    while text and c.stringWidth(text + "...", "Helvetica", size) > max_width:
+    while text and c.stringWidth(text + "...", font, size) > max_width:
         text = text[:-1]
     return text + "..."

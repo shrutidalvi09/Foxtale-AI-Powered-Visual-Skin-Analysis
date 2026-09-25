@@ -1,0 +1,267 @@
+{
+  "verified_on": "2026-09-25",
+  "note": "Combo names, prices and photos come from Foxtale's online store. What is inside each combo is shown on its page at foxtale.in; the tags here only say what it is aimed at, and savings are not shown because the contents were not listed in the store feed.",
+  "combos": [
+    {
+      "id": "the-ultimate-acne-treatment",
+      "name": "The Ultimate Acne Treatment",
+      "price_inr": 994,
+      "variant_id": "43779468624119",
+      "url": "https://foxtale.in/products/the-ultimate-acne-treatment",
+      "concerns": [
+        "acne"
+      ],
+      "highlights": [
+        "AHA + BHA acids"
+      ],
+      "has_retinol": false,
+      "has_acids": true,
+      "image": "/combo-images/the-ultimate-acne-treatment.jpg"
+    },
+    {
+      "id": "blackhead-reduction-duo",
+      "name": "Blackhead Reduction Duo",
+      "price_inr": 944,
+      "variant_id": "43747515629815",
+      "url": "https://foxtale.in/products/blackhead-reduction-duo",
+      "concerns": [
+        "acne",
+        "texture"
+      ],
+      "highlights": [
+        "Blackheads",
+        "AHA/PHA"
+      ],
+      "has_retinol": false,
+      "has_acids": true,
+      "image": "/combo-images/blackhead-reduction-duo.jpg"
+    },
+    {
+      "id": "getting-even-combo",
+      "name": "Even Tone & Texture",
+      "price_inr": 1090,
+      "variant_id": "43076118479095",
+      "url": "https://foxtale.in/products/getting-even-combo",
+      "concerns": [
+        "tone_evenness",
+        "texture"
+      ],
+      "highlights": [
+        "Vitamin C",
+        "Sunscreen"
+      ],
+      "has_retinol": false,
+      "has_acids": false,
+      "image": "/combo-images/getting-even-combo.jpg"
+    },
+    {
+      "id": "rapid-wrinkle-reduction",
+      "name": "Rapid Wrinkle Reduction",
+      "price_inr": 1094,
+      "variant_id": "43442716082423",
+      "url": "https://foxtale.in/products/rapid-wrinkle-reduction",
+      "concerns": [
+        "anti_aging"
+      ],
+      "highlights": [
+        "Retinol"
+      ],
+      "has_retinol": true,
+      "has_acids": false,
+      "image": "/combo-images/rapid-wrinkle-reduction.jpg"
+    },
+    {
+      "id": "intense-moisture-lock-for-dry-dehydrated-skin",
+      "name": "Intense Moisture Lock",
+      "price_inr": 994,
+      "variant_id": "43603436306679",
+      "url": "https://foxtale.in/products/intense-moisture-lock-for-dry-dehydrated-skin",
+      "concerns": [
+        "hydration"
+      ],
+      "highlights": [
+        "Hyaluronic acid",
+        "Dry skin"
+      ],
+      "has_retinol": false,
+      "has_acids": false,
+      "image": "/combo-images/intense-moisture-lock-for-dry-dehydrated-skin.jpg"
+    },
+    {
+      "id": "am-pm-spot-reduction",
+      "name": "AM/PM Spot reduction",
+      "price_inr": 1194,
+      "variant_id": "43813219991799",
+      "url": "https://foxtale.in/products/am-pm-spot-reduction",
+      "concerns": [
+        "dark_spots"
+      ],
+      "highlights": [
+        "Retinol",
+        "Hyaluronic acid",
+        "Spot reduction"
+      ],
+      "has_retinol": true,
+      "has_acids": false,
+      "image": "/combo-images/am-pm-spot-reduction.jpg"
+    },
+    {
+      "id": "de-pigmentation-booster",
+      "name": "De-pigmentation Booster",
+      "price_inr": 1190,
+      "variant_id": "43813163499767",
+      "url": "https://foxtale.in/products/de-pigmentation-booster",
+      "concerns": [
+        "dark_spots"
+      ],
+      "highlights": [
+        "Hyperpigmentation",
+        "Spot reduction"
+      ],
+      "has_retinol": false,
+      "has_acids": false,
+      "image": "/combo-images/de-pigmentation-booster.jpg"
+    },
+    {
+      "id": "anti-ageing-duo",
+      "name": "Smooth Texture and Tone",
+      "price_inr": 1090,
+      "variant_id": "42171712405751",
+      "url": "https://foxtale.in/products/anti-ageing-duo",
+      "concerns": [
+        "texture",
+        "tone_evenness",
+        "anti_aging"
+      ],
+      "highlights": [
+        "Vitamin C",
+        "Sunscreen"
+      ],
+      "has_retinol": false,
+      "has_acids": false,
+      "image": "/combo-images/anti-ageing-duo.jpg"
+    },
+    {
+      "id": "firmer-skin-duo",
+      "name": "Firmer Skin Duo",
+      "price_inr": 1148,
+      "variant_id": "43678254530807",
+      "url": "https://foxtale.in/products/firmer-skin-duo",
+      "concerns": [
+        "anti_aging"
+      ],
+      "highlights": [
+        "Retinol",
+        "Hyaluronic acid"
+      ],
+      "has_retinol": true,
+      "has_acids": false,
+      "image": "/combo-images/firmer-skin-duo.jpg"
+    },
+    {
+      "id": "oil-free-brightening-duo",
+      "name": "Oil Free Brightening Duo",
+      "price_inr": 940,
+      "variant_id": "43987537068279",
+      "url": "https://foxtale.in/products/oil-free-brightening-duo",
+      "concerns": [
+        "brightening",
+        "oil_control"
+      ],
+      "highlights": [
+        "Oil-free"
+      ],
+      "has_retinol": false,
+      "has_acids": false,
+      "image": "/combo-images/oil-free-brightening-duo.jpg"
+    },
+    {
+      "id": "niacinamide-serum-mattifying-sunscreen",
+      "name": "The Perfect Matte Duo",
+      "price_inr": 1040,
+      "variant_id": "43946917888247",
+      "url": "https://foxtale.in/products/niacinamide-serum-mattifying-sunscreen",
+      "concerns": [
+        "oil_control",
+        "pores"
+      ],
+      "highlights": [
+        "Niacinamide",
+        "Matte sunscreen"
+      ],
+      "has_retinol": false,
+      "has_acids": false,
+      "image": "/combo-images/niacinamide-serum-mattifying-sunscreen.jpg"
+    },
+    {
+      "id": "sensitive-skin-squad",
+      "name": "Sensitive Skin Squad",
+      "price_inr": 1044,
+      "variant_id": "43236776739063",
+      "url": "https://foxtale.in/products/sensitive-skin-squad",
+      "concerns": [
+        "redness",
+        "hydration"
+      ],
+      "highlights": [
+        "Sensitive skin"
+      ],
+      "has_retinol": false,
+      "has_acids": false,
+      "image": "/combo-images/sensitive-skin-squad.jpg"
+    },
+    {
+      "id": "abc-of-acne-control",
+      "name": "ABC of Acne Control",
+      "price_inr": 1243,
+      "variant_id": "43121492361463",
+      "url": "https://foxtale.in/products/abc-of-acne-control",
+      "concerns": [
+        "acne",
+        "oil_control"
+      ],
+      "highlights": [
+        "Cleanser",
+        "Moisturizer"
+      ],
+      "has_retinol": false,
+      "has_acids": false,
+      "image": "/combo-images/abc-of-acne-control.jpg"
+    },
+    {
+      "id": "hydraglow-duo",
+      "name": "HydraGlow Duo",
+      "price_inr": 1040,
+      "variant_id": "43000139088119",
+      "url": "https://foxtale.in/products/hydraglow-duo",
+      "concerns": [
+        "hydration",
+        "brightening"
+      ],
+      "highlights": [
+        "Vitamin C"
+      ],
+      "has_retinol": false,
+      "has_acids": false,
+      "image": "/combo-images/hydraglow-duo.jpg"
+    },
+    {
+      "id": "glow-protect-duo",
+      "name": "Glow & Protect Duo",
+      "price_inr": 1090,
+      "variant_id": "43747515597047",
+      "url": "https://foxtale.in/products/glow-protect-duo",
+      "concerns": [
+        "brightening",
+        "texture"
+      ],
+      "highlights": [
+        "AHA/PHA",
+        "Mask"
+      ],
+      "has_retinol": false,
+      "has_acids": true,
+      "image": "/combo-images/glow-protect-duo.jpg"
+    }
+  ]
+}

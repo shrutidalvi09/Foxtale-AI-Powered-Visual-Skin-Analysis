@@ -43,9 +43,9 @@ def make_pdf(scan: Dict[str, Any], previous: Optional[dict], image: Optional[np.
         return Path(dest).read_bytes()
 
 
-def message_params(scan: Dict[str, Any], previous: Optional[dict], owned: list) -> Tuple[str, str, str, str]:
+def message_params(scan: Dict[str, Any], previous: Optional[dict], owned: list, profile: Optional[dict] = None) -> Tuple[str, str, str, str]:
     """Template variables {{1}}..{{4}}: score, summary, routine, date."""
-    report = report_builder.build(scan["analysis"], scan["regions"], previous, owned)
+    report = report_builder.build(scan["analysis"], scan["regions"], previous, owned, profile)
     score = f"{report['overallScore']}/100 ({report['scoreLabel']})" if report["overallScore"] is not None else "n/a"
     picks = [s for s in report["skincare"]["suggestions"] if not s["owned"]][:4]
     routine = "; ".join(f"{s['stepLabel']}: {s['name']}" for s in picks) or "Keep up your current routine"
@@ -77,7 +77,7 @@ def deliver_new_scan(scan: Dict[str, Any], image: Optional[np.ndarray], previous
         return
     try:
         pdf = make_pdf(scan, previous, image)
-        params = message_params(scan, previous, settings.get("owned_products", []))
+        params = message_params(scan, previous, settings.get("owned_products", []), settings.get("profile") or None)
     except Exception:  # noqa: BLE001
         logger.exception("Could not build the WhatsApp report for %s", scan["id"])
         storage.set_delivery(scan["id"], "failed", "Could not build the report.")
@@ -105,7 +105,7 @@ def resend(scan_id: str) -> bool:
         previous = older[0]["analysis"] if older else None
         path = storage.image_path(scan_id)
         image = cv2.imread(str(path)) if path else None
-        cached = (make_pdf(scan, previous, image), message_params(scan, previous, settings.get("owned_products", [])))
+        cached = (make_pdf(scan, previous, image), message_params(scan, previous, settings.get("owned_products", []), settings.get("profile") or None))
         _cache[scan_id] = cached
     _send(scan_id, settings["whatsapp_number"], *cached)
     return True

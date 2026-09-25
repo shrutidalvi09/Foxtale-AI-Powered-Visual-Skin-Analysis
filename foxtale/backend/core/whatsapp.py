@@ -170,6 +170,16 @@ def send_report(phone: str, pdf: bytes, filename: str, params: Tuple[str, str, s
     ])
 
 
+def send_weekly(phone: str, params: Tuple[str, str, str, str]) -> None:
+    """params: (first name, skin summary, routine summary, tip) -> template variables {{1}}..{{4}}."""
+    if dry_run():
+        logger.warning("[WHATSAPP DRY RUN] weekly check-in to +%s: %s", phone, params)
+        return
+    _template("WHATSAPP_WEEKLY_TEMPLATE", "foxtale_weekly", phone, [
+        {"type": "body", "parameters": [_param(p, 400) for p in params]},
+    ])
+
+
 # --------------------------------------------------------------------- OTP
 
 _lock = threading.Lock()

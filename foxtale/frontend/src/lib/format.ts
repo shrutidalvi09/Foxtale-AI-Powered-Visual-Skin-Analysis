@@ -16,6 +16,11 @@ export const CATEGORY_COLORS: Record<string, string> = {
   "Dryness indicators": "#3b82f6",
   Oiliness: "#a3a316",
   "Tone evenness": "#a855f7",
+  "Dark spots": "#92400e",
+  Blackheads: "#374151",
+  Whiteheads: "#e5e7eb",
+  "Under-eye": "#7c3aed",
+  "Fine lines": "#0d9488",
 };
 
 export function formatDate(iso: string, withTime = true): string {

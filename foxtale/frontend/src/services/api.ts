@@ -152,3 +152,205 @@ export const removeWhatsApp = () => request<WhatsAppStatus>("/api/whatsapp", { m
 export const setWhatsAppAuto = (enabled: boolean) => request<WhatsAppStatus>("/api/whatsapp/auto", json("PUT", { enabled }));
 export const getDelivery = (scanId: string) => request<WhatsAppDelivery>(`/api/whatsapp/delivery/${scanId}`);
 export const resendWhatsApp = (scanId: string) => request<{ ok: boolean }>(`/api/whatsapp/resend/${scanId}`, { method: "POST" });
+
+// live camera preview
+export interface LiveSpot {
+  x: number;
+  y: number;
+  r: number;
+  kind: "pimple" | "mark";
+  contrast: number;
+}
+export interface LiveResult {
+  face: { x: number; y: number; w: number; h: number } | null;
+  spots: LiveSpot[];
+  message: string | null;
+  error: string | null;
+  checks?: { lighting: string; distance: string; centered: string; sharpness: string };
+}
+export async function liveScan(frame: Blob, signal?: AbortSignal): Promise<LiveResult> {
+  const form = new FormData();
+  form.append("image", frame, "frame.jpg");
+  return request<LiveResult>("/api/live", { method: "POST", body: form, signal });
+}
+
+// profile (onboarding questionnaire)
+export interface Profile {
+  name: string;
+  age_range: string;
+  gender: string;
+  goals: string[];
+  sensitive_skin: boolean;
+  pregnant: boolean;
+  allergies: string;
+  budget: "any" | "low" | "mid";
+  onboarded: boolean;
+}
+export const getProfile = () => request<Partial<Profile>>("/api/profile");
+export const putProfile = (p: Profile) => request<Profile>("/api/profile", json("PUT", p));
+
+// routine tracker
+export interface RoutineState {
+  today: { AM: string[]; PM: string[] };
+  history: { day: string; am: number; pm: number }[];
+  streak: number;
+  todayDate: string;
+}
+export const getRoutine = (days = 21) => request<RoutineState>(`/api/routine?days=${days}`);
+export const toggleRoutine = (day: string, slot: "AM" | "PM", productId: string, done: boolean) =>
+  request<{ ok: boolean }>("/api/routine", json("POST", { day, slot, productId, done }));
+
+/** Foxtale's Shopify cart link: opens foxtale.in with these variants already in the cart. */
+export const cartUrl = (variantIds: string[]) =>
+  `https://foxtale.in/cart/${variantIds.map((v) => `${v}:1`).join(",")}`;
+
+// ingredient checker, product results, weekly check-in
+export interface IngredientFinding {
+  severity: "avoid" | "caution" | "info";
+  ingredient: string;
+  label: string;
+  why: string;
+}
+export interface IngredientResult {
+  ok: boolean;
+  message?: string;
+  verdict?: "good" | "caution" | "avoid";
+  summary?: string;
+  findings?: IngredientFinding[];
+  positives?: string[];
+  conflicts?: { with: string; detail: string }[];
+  counts?: { ingredients: number; recognised: number; unrecognised: number };
+  note?: string;
+  usedProfile?: boolean;
+}
+export const checkIngredients = (text: string) => request<IngredientResult>("/api/ingredients/check", json("POST", { text }));
+
+export interface ProductEffect {
+  productId: string;
+  name: string;
+  image: string;
+  startedAt: string;
+  days: number;
+  status: "collecting" | "improving" | "steady" | "mixed" | "worse";
+  message: string;
+  startedWith: string[];
+  before: number;
+  after: number;
+  metrics: { target: string; label: string; unit: string; before: number; after: number; delta: number; verdict: "improved" | "steady" | "worse" }[];
+}
+export const getEffects = () => request<ProductEffect[]>("/api/effects");
+export const setProductStart = (productId: string, startedAt: string) =>
+  request<{ ok: boolean }>("/api/effects/start", json("PUT", { productId, startedAt }));
+
+export interface DigestState {
+  enabled: boolean;
+  day: number;
+  hour: number;
+  lastSent: string | null;
+  registered: boolean;
+  preview: { name: string; skin: string; routine: string; tip: string };
+}
+export const getDigest = () => request<DigestState>("/api/digest");
+export const putDigest = (enabled: boolean, day: number, hour: number) => request<DigestState>("/api/digest", json("PUT", { enabled, day, hour }));
+export const sendDigestNow = () => request<{ ok: boolean }>("/api/digest/send", { method: "POST" });
+
+export interface RoutineCheck {
+  products: string[];
+  issues: { severity: "avoid" | "caution" | "info"; title: string; detail: string; fix: string; products: string[] }[];
+}
+export const getRoutineCheck = () => request<RoutineCheck>("/api/routine/check");
+
+// shop catalog, skin weather, skin diary
+export interface CatalogProduct {
+  id: string;
+  name: string;
+  step: "cleanse" | "treat" | "eye" | "moisturize" | "protect";
+  stepLabel: string;
+  when: string;
+  ingredients: string[];
+  targets: string[];
+  targetLabels: string[];
+  skinTypes: string[];
+  active: boolean;
+  howItWorks: string;
+  howToUse: string;
+  caution: string;
+  url: string;
+  size: string;
+  price: number | null;
+  priceSource: "foxtale" | "retailer_mrp";
+  variantId: string | null;
+  shape: "tube" | "dropper" | "jar";
+  reason: string;
+  image: string | null;
+  owned: boolean;
+}
+export interface Combo {
+  id: string;
+  name: string;
+  price_inr: number;
+  variant_id: string;
+  url: string;
+  concerns: string[];
+  highlights: string[];
+  has_retinol: boolean;
+  has_acids: boolean;
+  image: string;
+}
+export interface Catalog {
+  products: CatalogProduct[];
+  combos: Combo[];
+  comboNote: string;
+  catalogDate: string;
+  priceNote: string;
+}
+export const getCatalog = () => request<Catalog>("/api/catalog");
+export const comboImageUrl = (path: string) => `${API_BASE_URL}${path}`;
+
+export interface WeatherTip {
+  icon: string;
+  tone: "good" | "ok" | "warn";
+  title: string;
+  text: string;
+  products: string[];
+  productNames: string[];
+}
+export interface SkinWeather {
+  configured: boolean;
+  error?: string;
+  city?: string;
+  skinType?: string;
+  temp?: number | null;
+  humidity?: number | null;
+  uv?: number | null;
+  uvLabel?: string | null;
+  aqi?: number | null;
+  aqiLabel?: string | null;
+  tips?: WeatherTip[];
+}
+export const getWeather = () => request<SkinWeather>("/api/weather");
+export const setLocation = (city: string) => request<{ name: string; lat: number; lon: number }>("/api/location", json("PUT", { city }));
+export const clearLocation = () => request<{ ok: boolean }>("/api/location", { method: "DELETE" });
+
+export interface DiaryEntry {
+  day: string;
+  sleep_hours?: number;
+  water_glasses?: number;
+  stress?: number;
+  skin_feel?: number;
+  flags: string[];
+  note: string;
+}
+export interface DiaryPatterns {
+  daysLogged: number;
+  daysWithFeel: number;
+  streak: number;
+  ready: boolean;
+  insights: { factor: string; title: string; text: string; direction: "better" | "worse"; confidence: "low" | "medium"; n: number }[];
+  scanInsights: { factor: string; title: string; text: string; direction: "better" | "worse"; confidence: "low" | "medium"; n: number }[];
+  message: string;
+  caveat: string;
+}
+export const getDiary = (days = 60) => request<{ entries: DiaryEntry[]; flags: Record<string, string> }>(`/api/diary?days=${days}`);
+export const saveDiary = (day: string, e: Omit<DiaryEntry, "day">) => request<DiaryEntry>(`/api/diary/${day}`, json("PUT", e));
+export const getDiaryPatterns = () => request<DiaryPatterns>("/api/diary/patterns");

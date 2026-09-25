@@ -14,6 +14,11 @@ CATEGORY_COLOR_BGR = {
     "Dryness indicators": (255, 170, 80),
     "Oiliness": (200, 200, 60),
     "Tone evenness": (200, 120, 200),
+    "Dark spots": (40, 80, 140),
+    "Blackheads": (80, 80, 80),
+    "Whiteheads": (240, 240, 240),
+    "Under-eye": (170, 90, 130),
+    "Fine lines": (150, 150, 60),
 }
 
 

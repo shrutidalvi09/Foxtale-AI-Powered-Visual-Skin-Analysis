@@ -14,24 +14,28 @@ import { CountUp, Reveal, Skeleton, useInView } from "../lib/motion";
 
 const PAGE_SIZE = 8;
 
-function TrendChart({ series }: { series: { timestamp: string; score: number | null }[] }) {
+type Point = { timestamp: string; value: number | null };
+
+function TrendChart({ series, max = 100, lowerIsBetter = false, unit = "" }: { series: Point[]; max?: number; lowerIsBetter?: boolean; unit?: string }) {
   const [ref, seen] = useInView<SVGSVGElement>(0.3);
-  const pts = series.filter((p) => p.score != null) as { timestamp: string; score: number }[];
+  const pts = series.filter((p) => p.value != null) as { timestamp: string; value: number }[];
   if (pts.length < 2) {
-    return <p className="py-10 text-center text-sm text-muted">Two or more scans with an overall score are needed to draw a trend.</p>;
+    return <p className="py-10 text-center text-sm text-muted">Two or more scans with this measurement are needed to draw a trend.</p>;
   }
   const W = 640;
   const H = 180;
   const pad = 28;
+  const top = Math.max(max, ...pts.map((p) => p.value));
   const x = (i: number) => pad + (i * (W - pad * 2)) / (pts.length - 1);
-  const y = (s: number) => H - pad - (s / 100) * (H - pad * 2);
-  const path = pts.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.score).toFixed(1)}`).join(" ");
+  const y = (v: number) => H - pad - (v / top) * (H - pad * 2);
+  const path = pts.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.value).toFixed(1)}`).join(" ");
+  const dot = (v: number) => scoreColor(lowerIsBetter ? Math.max(0, 100 - (v / top) * 100) : (v / top) * 100);
   return (
-    <svg ref={ref} viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label="Overall skin score over time">
-      {[0, 50, 100].map((g) => (
+    <svg ref={ref} viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label="Trend over time">
+      {[0, top / 2, top].map((g) => (
         <g key={g}>
           <line x1={pad} x2={W - pad} y1={y(g)} y2={y(g)} stroke="var(--line)" strokeDasharray="4 4" />
-          <text x={4} y={y(g) + 4} className="fill-muted text-[10px]">{g}</text>
+          <text x={4} y={y(g) + 4} className="fill-muted text-[10px]">{Math.round(g)}</text>
         </g>
       ))}
       <path
@@ -40,13 +44,53 @@ function TrendChart({ series }: { series: { timestamp: string; score: number | n
       />
       {pts.map((p, i) => (
         <circle
-          key={p.timestamp} cx={x(i)} cy={y(p.score)} r={seen ? 4.5 : 0} fill={scoreColor(p.score)} stroke="var(--card)" strokeWidth="2"
+          key={p.timestamp} cx={x(i)} cy={y(p.value)} r={seen ? 4.5 : 0} fill={dot(p.value)} stroke="var(--card)" strokeWidth="2"
           style={{ transition: `r .4s cubic-bezier(0.34, 1.56, 0.64, 1) ${0.5 + i * 0.12}s` }}
         >
-          <title>{`${formatDate(p.timestamp, false)}: ${p.score}`}</title>
+          <title>{`${formatDate(p.timestamp, false)}: ${p.value}${unit}`}</title>
         </circle>
       ))}
     </svg>
+  );
+}
+
+const METRICS = [
+  { key: "overall", label: "Overall score", lowerIsBetter: false, max: 100, unit: "" },
+  { key: "acne", label: "Acne spots", lowerIsBetter: true, max: 10, unit: "" },
+  { key: "darkSpots", label: "Dark spots (% of skin)", lowerIsBetter: true, max: 3, unit: "%" },
+  { key: "uniformity", label: "Tone uniformity", lowerIsBetter: false, max: 100, unit: "%" },
+  { key: "poresScore", label: "Pore visibility", lowerIsBetter: true, max: 100, unit: "" },
+] as const;
+
+function ProgressCard({ insights }: { insights: Insights }) {
+  const [metric, setMetric] = useState<(typeof METRICS)[number]["key"]>("overall");
+  const m = METRICS.find((x) => x.key === metric)!;
+  const series: Point[] = (insights.featureSeries ?? []).map((f) => ({ timestamp: f.timestamp, value: f[metric] as number | null }));
+  // change over the last 28 days
+  const cutoff = Date.now() - 28 * 24 * 3600 * 1000;
+  const recent = series.filter((p) => p.value != null && new Date(p.timestamp).getTime() >= cutoff) as { timestamp: string; value: number }[];
+  let summary = "";
+  if (recent.length >= 2) {
+    const first = recent[0].value;
+    const last = recent[recent.length - 1].value;
+    const delta = Math.round((last - first) * 10) / 10;
+    const better = m.lowerIsBetter ? delta < 0 : delta > 0;
+    summary = delta === 0
+      ? `${m.label} is unchanged over the last 4 weeks (${last}${m.unit}).`
+      : `${m.label} went from ${first}${m.unit} to ${last}${m.unit} in the last 4 weeks (${better ? "better" : "worse"}).`;
+  } else {
+    summary = "Scan at least twice within 4 weeks to see a progress summary.";
+  }
+  return (
+    <>
+      <SectionTitle title="Progress by feature" subtitle={summary} />
+      <div className="mt-3 flex flex-wrap gap-2" role="tablist" aria-label="Measurement">
+        {METRICS.map((x) => (
+          <button key={x.key} role="tab" aria-selected={metric === x.key} className={`chip !py-1.5 text-[13px] ${metric === x.key ? "chip-on" : ""}`} onClick={() => setMetric(x.key)}>{x.label}</button>
+        ))}
+      </div>
+      <div className="mt-3" key={metric}><TrendChart series={series} max={m.max} lowerIsBetter={m.lowerIsBetter} unit={m.unit} /></div>
+    </>
   );
 }
 
@@ -162,8 +206,8 @@ export default function History() {
               </div>
 
               <Reveal as="section" className="card mt-5 p-5">
-                <SectionTitle title="Overall score over time" subtitle={insights?.headline} />
-                <div className="mt-3"><TrendChart series={insights?.scoreSeries ?? []} /></div>
+                {insights ? <ProgressCard insights={insights} /> : <Skeleton className="h-56" />}
+                {insights && <p className="mt-2 text-sm text-muted">{insights.headline}</p>}
               </Reveal>
 
               <div className="mt-5 flex flex-wrap items-center gap-3">

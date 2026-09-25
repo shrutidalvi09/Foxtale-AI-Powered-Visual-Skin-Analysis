@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
-  ArrowUp, BarChart3, Camera, CheckCircle2, GitCompare, History as HistoryIcon, Home, Info, Lock, Menu, Moon, ScanFace, Sun, X, WifiOff,
+  ArrowUp, BarChart3, Camera, CheckCircle2, GitCompare, History as HistoryIcon, Home, ListChecks, Lock, Menu, Moon,
+  ScanFace, Settings as SettingsIcon, Sun, X, WifiOff, FlaskConical, NotebookPen, Store,
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 
@@ -10,11 +11,19 @@ const LINKS = [
   { to: "/", label: "Dashboard", icon: Home, end: true, title: "Dashboard" },
   { to: "/scan", label: "Scan", icon: Camera, title: "Skin scan" },
   { to: "/analysis", label: "Analysis", icon: BarChart3, title: "Analysis" },
+  { to: "/routine", label: "Routine", icon: ListChecks, title: "My routine" },
+  { to: "/diary", label: "Skin diary", icon: NotebookPen, title: "Skin diary" },
+  { to: "/shop", label: "Shop", icon: Store, title: "Shop" },
+  { to: "/ingredients", label: "Ingredient check", icon: FlaskConical, title: "Ingredient check" },
   { to: "/history", label: "History", icon: HistoryIcon, title: "History" },
   { to: "/compare", label: "Compare", icon: GitCompare, title: "Compare scans" },
   { to: "/privacy", label: "Privacy", icon: Lock, title: "Privacy" },
-  { to: "/about", label: "About", icon: Info, title: "About" },
+  { to: "/settings", label: "Settings", icon: SettingsIcon, title: "Settings" },
 ];
+
+const PAGE_TITLES: Record<string, string> = {
+  "/welcome": "Welcome", "/how-it-works": "How it works", "/privacy-policy": "Privacy policy", "/terms": "Terms of use", "/about": "About",
+};
 
 function NavItems({ onNavigate }: { onNavigate?: () => void }) {
   return (
@@ -23,7 +32,7 @@ function NavItems({ onNavigate }: { onNavigate?: () => void }) {
         <NavLink
           key={to} to={to} end={end} onClick={onNavigate}
           className={({ isActive }) =>
-            `nav-link relative flex items-center gap-3 overflow-hidden rounded-2xl px-4 py-3 text-sm font-semibold transition-colors ${
+            `nav-link relative flex items-center gap-3 overflow-hidden rounded-2xl px-4 py-2.5 text-sm font-semibold transition-colors ${
               isActive
                 ? "bg-fox-50 text-fox-text shadow-sm dark:bg-fox-500/15 dark:text-fox-300"
                 : "text-muted hover:bg-soft hover:text-ink"
@@ -94,6 +103,35 @@ function ScrollAids() {
   );
 }
 
+/** Phone bottom tab bar: the things you do most, with Scan as a raised centre button. */
+function MobileTabs({ onMore }: { onMore: () => void }) {
+  const navigate = useNavigate();
+  const tab = (to: string, label: string, Icon: typeof Home, end = false) => (
+    <NavLink
+      to={to} end={end}
+      className={({ isActive }) => `flex flex-1 flex-col items-center gap-0.5 py-2 text-[10.5px] font-bold transition-colors ${isActive ? "text-fox-text dark:text-fox-300" : "text-muted"}`}
+    >
+      <Icon size={20} /> {label}
+    </NavLink>
+  );
+  return (
+    <nav className="fixed inset-x-0 bottom-0 z-40 flex items-end border-t border-line bg-card/95 px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden" aria-label="Main">
+      {tab("/", "Home", Home, true)}
+      {tab("/analysis", "Analysis", BarChart3)}
+      <button
+        onClick={() => navigate("/scan", { state: { autostart: true } })} aria-label="Start new scan"
+        className="-mt-5 mb-2 flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-fox-600 text-white shadow-glow transition active:scale-90"
+      >
+        <ScanFace size={26} />
+      </button>
+      {tab("/routine", "Routine", ListChecks)}
+      <button onClick={onMore} className="flex flex-1 flex-col items-center gap-0.5 py-2 text-[10.5px] font-bold text-muted" aria-label="More menu">
+        <Menu size={20} /> More
+      </button>
+    </nav>
+  );
+}
+
 export default function Layout({ children }: { children: ReactNode }) {
   const { settings, updateSettings, backendOnline, recheckBackend, toastMessage } = useApp();
   const navigate = useNavigate();
@@ -104,10 +142,19 @@ export default function Layout({ children }: { children: ReactNode }) {
   // new page: back to the top, update the tab title, close the mobile menu
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "auto" });
-    const match = LINKS.find((l) => (l.end ? pathname === l.to : pathname.startsWith(l.to)));
-    document.title = `${match?.title ?? "Foxtale"} · Foxtale`;
+    const match = LINKS.find((l) => (l.end ? pathname === l.to : pathname === l.to || pathname.startsWith(l.to + "/")));
+    document.title = `${match?.title ?? PAGE_TITLES[pathname] ?? "Foxtale"} · Foxtale`;
     setOpen(false);
   }, [pathname]);
+
+  if (pathname === "/welcome") {
+    return (
+      <div className="min-h-screen bg-app px-4 py-6">
+        <div className="page-enter">{children}</div>
+        {toastMessage && <div className="toast-in fixed bottom-6 left-1/2 z-50 rounded-2xl bg-ink px-5 py-3 text-sm font-semibold text-card shadow-card" role="status">{toastMessage}</div>}
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-app lg:flex">
@@ -162,18 +209,26 @@ export default function Layout({ children }: { children: ReactNode }) {
           </div>
         )}
 
-        <main className="mx-auto w-full max-w-[1200px] flex-1 px-4 py-6 sm:px-8 sm:py-8">
+        <main className="mx-auto w-full max-w-[1200px] flex-1 px-4 py-6 pb-28 sm:px-8 sm:py-8 lg:pb-8">
           <div key={pathname} className="page-enter">{children}</div>
         </main>
-        <footer className="border-t border-line py-5 text-center text-xs text-muted">
-          Foxtale · AI-powered visual skin analysis. Not a medical diagnosis.
+        <footer className="border-t border-line px-4 py-5 pb-24 text-center text-xs text-muted lg:pb-5">
+          <p>Foxtale · AI-powered visual skin analysis. Not a medical diagnosis.</p>
+          <p className="mt-2 flex flex-wrap justify-center gap-x-4 gap-y-1">
+            <NavLink className="hover:text-ink hover:underline" to="/how-it-works">How it works &amp; FAQ</NavLink>
+            <NavLink className="hover:text-ink hover:underline" to="/privacy-policy">Privacy Policy</NavLink>
+            <NavLink className="hover:text-ink hover:underline" to="/terms">Terms</NavLink>
+            <NavLink className="hover:text-ink hover:underline" to="/about">About</NavLink>
+          </p>
         </footer>
       </div>
+
+      <MobileTabs onMore={() => setOpen((o) => !o)} />
 
       {toastMessage && (
         <div
           key={toastMessage}
-          className="toast-in fixed bottom-6 left-1/2 z-50 min-w-[240px] overflow-hidden rounded-2xl bg-ink px-5 py-3.5 text-sm font-semibold text-card shadow-card"
+          className="toast-in fixed bottom-24 left-1/2 z-50 min-w-[240px] lg:bottom-6 overflow-hidden rounded-2xl bg-ink px-5 py-3.5 text-sm font-semibold text-card shadow-card"
           role="status"
         >
           <span className="flex items-center gap-2.5"><CheckCircle2 size={17} className="text-emerald-400" /> {toastMessage}</span>

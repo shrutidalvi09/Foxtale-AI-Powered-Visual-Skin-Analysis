@@ -38,6 +38,8 @@ class SkinAnalysis:
     overall_score: Optional[int] = None  # 0-100, higher = clearer-looking skin
     region_scores: Dict[str, dict] = field(default_factory=dict)  # per-region score + raw metrics
     metrics: Dict[str, float] = field(default_factory=dict)  # face-wide raw measurements
+    skin_tone: Optional[dict] = None  # {label, ita, undertone, hue, swatch}
+    detail: Dict[str, dict] = field(default_factory=dict)  # detailed findings from engine.features
     engine_version: int = 1
 
     def to_dict(self) -> dict:
@@ -57,6 +59,10 @@ class SkinAnalysis:
             d["region_scores"] = self.region_scores
         if self.metrics:
             d["metrics"] = self.metrics
+        if self.skin_tone:
+            d["skin_tone"] = self.skin_tone
+        if self.detail:
+            d["detail"] = self.detail
         d["engine_version"] = self.engine_version
         return d
 
@@ -75,6 +81,8 @@ class SkinAnalysis:
             overall_score=d.get("overall_score"),
             region_scores=d.get("region_scores") or {},
             metrics=d.get("metrics") or {},
+            skin_tone=d.get("skin_tone"),
+            detail=d.get("detail") or {},
             engine_version=d.get("engine_version", 1),
         )
 

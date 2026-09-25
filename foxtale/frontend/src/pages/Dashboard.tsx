@@ -8,6 +8,7 @@ import { getInsights } from "../services/api";
 import type { Insights } from "../types/analysis";
 import { LEVEL_DOT, formatDate, greeting, scoreColor } from "../lib/format";
 import { LevelPill } from "../components/ui";
+import WeatherCard from "../components/WeatherCard";
 import { CountUp, Reveal, Skeleton } from "../lib/motion";
 
 const MILESTONES = [1, 5, 10, 25, 50];
@@ -27,7 +28,7 @@ const FEATURES = [
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { settings, dataVersion } = useApp();
+  const { settings, dataVersion, profile } = useApp();
   const [data, setData] = useState<Insights | null>(null);
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -49,7 +50,7 @@ export default function Dashboard() {
     <div className="animate-fade-up space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold text-ink sm:text-[30px]">{greeting()}, Fox! 👋</h1>
+          <h1 className="text-2xl font-extrabold text-ink sm:text-[30px]">{greeting()}, {profile?.name?.trim() || "Fox"}! 👋</h1>
           <p className="mt-1 text-muted">Let's understand your skin today.</p>
         </div>
         <button className="btn-cta text-base" onClick={startScan}><ScanFace size={18} /> Start New Scan</button>
@@ -103,6 +104,8 @@ export default function Dashboard() {
           </Reveal>
         ))}
       </div>
+
+      <Reveal><WeatherCard /></Reveal>
 
       {/* stats */}
       <div className="grid gap-4 sm:grid-cols-3">

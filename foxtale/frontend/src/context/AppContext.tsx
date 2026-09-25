@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { getSettings, getWhatsApp, health, putSettings } from "../services/api";
-import type { WhatsAppStatus } from "../services/api";
+import { getProfile, getSettings, getWhatsApp, health, putProfile, putSettings } from "../services/api";
+import type { Profile, WhatsAppStatus } from "../services/api";
 import type { Scan, Settings } from "../types/analysis";
 
 const DEFAULT_SETTINGS: Settings = {
@@ -25,6 +25,8 @@ interface AppContextValue {
   updateSettings: (patch: Partial<Settings>) => Promise<void>;
   backendOnline: boolean | null;
   recheckBackend: () => void;
+  profile: Partial<Profile> | null;
+  saveProfile: (p: Profile) => Promise<void>;
   whatsapp: WhatsAppStatus | null;
   setWhatsapp: (s: WhatsAppStatus) => void;
   refreshWhatsapp: () => void;
@@ -55,10 +57,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<Settings>({ ...DEFAULT_SETTINGS, theme: initialTheme() });
   const [backendOnline, setBackendOnline] = useState<boolean | null>(null);
   const [whatsapp, setWhatsapp] = useState<WhatsAppStatus | null>(null);
+  const [profile, setProfile] = useState<Partial<Profile> | null>(null);
   const [current, setCurrent] = useState<CurrentScan | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [dataVersion, setDataVersion] = useState(0);
   const toastTimer = useRef<number | undefined>(undefined);
+
+  const saveProfile = useCallback(async (p: Profile) => {
+    setProfile(await putProfile(p));
+  }, []);
 
   const refreshWhatsapp = useCallback(() => {
     getWhatsApp().then(setWhatsapp).catch(() => undefined);
@@ -69,6 +76,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .then(() => {
         setBackendOnline(true);
         refreshWhatsapp();
+        getProfile().then(setProfile).catch(() => undefined);
       })
       .catch(() => setBackendOnline(false));
   }, [refreshWhatsapp]);
@@ -109,10 +117,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(
     () => ({
-      settings, updateSettings, backendOnline, recheckBackend, whatsapp, setWhatsapp, refreshWhatsapp, current, setCurrent,
+      settings, updateSettings, backendOnline, recheckBackend, profile, saveProfile, whatsapp, setWhatsapp, refreshWhatsapp, current, setCurrent,
       toast, toastMessage, dataVersion, bumpData,
     }),
-    [settings, updateSettings, backendOnline, recheckBackend, whatsapp, refreshWhatsapp, current, toast, toastMessage, dataVersion, bumpData]
+    [settings, updateSettings, backendOnline, recheckBackend, profile, saveProfile, whatsapp, refreshWhatsapp, current, toast, toastMessage, dataVersion, bumpData]
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

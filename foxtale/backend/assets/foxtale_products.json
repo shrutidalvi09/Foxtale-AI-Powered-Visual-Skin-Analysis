@@ -14,11 +14,14 @@
       ],
       "targets": [
         "acne_like_spots",
-        "oiliness"
+        "oiliness",
+        "blackheads",
+        "pores"
       ],
       "skin_types": [
         "oily",
-        "combination"
+        "combination",
+        "normal"
       ],
       "active": false,
       "how_it_works": "Salicylic acid is oil-soluble, so it can get inside pores and loosen the mix of oil and dead skin that clogs them, which is what many spots start from. Niacinamide helps regulate oil, and hyaluronic acid keeps the wash from leaving skin tight.",
@@ -30,7 +33,8 @@
       "price_inr": 249,
       "shape": "tube",
       "price_source": "foxtale",
-      "store_title": "Oil & Acne Control Face Wash"
+      "store_title": "Oil & Acne Control Face Wash",
+      "variant_id": "49932830474487"
     },
     {
       "id": "hydrating-face-wash",
@@ -61,7 +65,8 @@
       "price_inr": 395,
       "shape": "tube",
       "price_source": "foxtale",
-      "store_title": "Hydrating Face Wash"
+      "store_title": "Hydrating Face Wash",
+      "variant_id": "43290018939127"
     },
     {
       "id": "niacinamide-azelaic-serum",
@@ -77,7 +82,10 @@
         "redness",
         "oiliness",
         "tone_evenness",
-        "texture"
+        "texture",
+        "dark_spots",
+        "pores",
+        "acne_scars"
       ],
       "skin_types": [
         "oily",
@@ -94,7 +102,8 @@
       "price_inr": 645,
       "shape": "dropper",
       "price_source": "foxtale",
-      "store_title": "12% Niacinamide Clarifying Serum"
+      "store_title": "12% Niacinamide Clarifying Serum",
+      "variant_id": "50374648168695"
     },
     {
       "id": "aha-bha-serum",
@@ -110,7 +119,10 @@
       "targets": [
         "texture",
         "acne_like_spots",
-        "tone_evenness"
+        "tone_evenness",
+        "blackheads",
+        "pores",
+        "acne_scars"
       ],
       "skin_types": [
         "oily",
@@ -129,7 +141,8 @@
       "size": "30 ml",
       "price_inr": 545,
       "shape": "dropper",
-      "price_source": "retailer_mrp"
+      "price_source": "retailer_mrp",
+      "variant_id": null
     },
     {
       "id": "spot-corrector-gel",
@@ -158,7 +171,8 @@
       "price_inr": 449,
       "shape": "tube",
       "price_source": "foxtale",
-      "store_title": "Acne Spot Corrector with Salicylic Acid"
+      "store_title": "Acne Spot Corrector with Salicylic Acid",
+      "variant_id": "43520315425015"
     },
     {
       "id": "vitamin-c-serum",
@@ -170,7 +184,8 @@
         "1% Vitamin E"
       ],
       "targets": [
-        "tone_evenness"
+        "tone_evenness",
+        "dark_spots"
       ],
       "skin_types": [
         "oily",
@@ -190,7 +205,8 @@
       "price_inr": 645,
       "shape": "dropper",
       "price_source": "foxtale",
-      "store_title": "Vitamin C Serum"
+      "store_title": "Vitamin C Serum",
+      "variant_id": "43520247234807"
     },
     {
       "id": "hyaluronic-serum",
@@ -203,7 +219,8 @@
       ],
       "targets": [
         "dryness_indicators",
-        "redness"
+        "redness",
+        "fine_lines"
       ],
       "skin_types": [
         "dry",
@@ -220,7 +237,8 @@
       "price_inr": 549,
       "shape": "dropper",
       "price_source": "foxtale",
-      "store_title": "Hyaluronic Acid Serum"
+      "store_title": "Hyaluronic Acid Serum",
+      "variant_id": "43608809013495"
     },
     {
       "id": "oil-balancing-moisturizer",
@@ -235,7 +253,8 @@
       "targets": [
         "oiliness",
         "redness",
-        "acne_like_spots"
+        "acne_like_spots",
+        "pores"
       ],
       "skin_types": [
         "oily",
@@ -251,7 +270,8 @@
       "price_inr": 445,
       "shape": "jar",
       "price_source": "foxtale",
-      "store_title": "Oil Balancing Moisturizer with Niacinamide & Cica"
+      "store_title": "Oil Balancing Moisturizer with Niacinamide & Cica",
+      "variant_id": "49707135369463"
     },
     {
       "id": "ceramide-moisturizer",
@@ -266,7 +286,8 @@
       "targets": [
         "dryness_indicators",
         "redness",
-        "texture"
+        "texture",
+        "fine_lines"
       ],
       "skin_types": [
         "dry",
@@ -283,7 +304,8 @@
       "price_inr": 275,
       "shape": "jar",
       "price_source": "foxtale",
-      "store_title": "Nourishing Ceramide Moisturizer"
+      "store_title": "Nourishing Ceramide Moisturizer",
+      "variant_id": "50367894323447"
     },
     {
       "id": "matte-sunscreen",
@@ -298,7 +320,8 @@
         "oiliness",
         "redness",
         "tone_evenness",
-        "acne_like_spots"
+        "acne_like_spots",
+        "dark_spots"
       ],
       "skin_types": [
         "oily",
@@ -315,7 +338,8 @@
       "price_inr": 495,
       "shape": "tube",
       "price_source": "foxtale",
-      "store_title": "Ultra Matte Sunscreen SPF 50 PA ++++ for Oily Skin"
+      "store_title": "Ultra Matte Sunscreen SPF 50 PA ++++ for Oily Skin",
+      "variant_id": "43581359489271"
     },
     {
       "id": "dewy-sunscreen",
@@ -328,7 +352,8 @@
       "targets": [
         "dryness_indicators",
         "redness",
-        "tone_evenness"
+        "tone_evenness",
+        "dark_spots"
       ],
       "skin_types": [
         "dry",
@@ -345,7 +370,182 @@
       "price_inr": 495,
       "shape": "tube",
       "price_source": "foxtale",
-      "store_title": "Dewy Finish Sunscreen SPF 50 PA ++++ SPF 50 for Dry Skin | In-Vivo Tested"
+      "store_title": "Dewy Finish Sunscreen SPF 50 PA ++++ SPF 50 for Dry Skin | In-Vivo Tested",
+      "variant_id": "43598807400695"
+    },
+    {
+      "id": "under-eye-cream",
+      "name": "Brightening Under Eye Cream",
+      "step": "eye",
+      "when": "AM + PM",
+      "key_ingredients": [
+        "Ethyl ascorbic acid (vitamin C)",
+        "Caffeine",
+        "Hyaluronic acid",
+        "Niacinamide"
+      ],
+      "targets": [
+        "under_eye",
+        "tone_evenness"
+      ],
+      "skin_types": [
+        "oily",
+        "combination",
+        "normal",
+        "dry"
+      ],
+      "active": false,
+      "how_it_works": "A vitamin C derivative helps lighten pigment-related darkness, hyaluronic acid plumps the thin under-eye skin with water so shadows look softer, and caffeine is used to make the area look less tired.",
+      "how_to_use": "Use a pea-sized amount for both eyes, apply only on the orbital bone area and pat gently with minimal pressure.",
+      "caution": "Keep it out of the eyes. Dark circles also come from sleep, genetics and thin skin, which a cream cannot change.",
+      "url": "https://foxtale.in/products/brightening-under-eye-cream",
+      "size": "",
+      "price_inr": 495,
+      "price_source": "foxtale",
+      "shape": "tube",
+      "avoid_if": {},
+      "variant_id": "49002095345911"
+    },
+    {
+      "id": "retinol-serum",
+      "name": "0.15% Retinol Night Serum",
+      "step": "treat",
+      "when": "PM",
+      "key_ingredients": [
+        "Retinol 0.15%",
+        "Peptides",
+        "Vitamin E",
+        "Betaine"
+      ],
+      "targets": [
+        "fine_lines",
+        "texture",
+        "acne_scars",
+        "dark_spots",
+        "tone_evenness"
+      ],
+      "skin_types": [
+        "oily",
+        "combination",
+        "normal",
+        "dry"
+      ],
+      "active": true,
+      "how_it_works": "Retinol speeds up how fast skin renews itself and supports collagen, which over weeks can soften fine lines, smooth rough texture and fade marks. Peptides, vitamin E and betaine help cushion and calm the skin.",
+      "how_to_use": "Night only, on completely dry skin: 2-3 pumps, avoiding the eye and mouth area, then moisturize. Start once a week and build up to 2-3 times a week. Visible results usually take 6-12 weeks.",
+      "caution": "Retinol can irritate: patch-test first, use sunscreen every morning, and skip it if you are pregnant or breastfeeding unless a doctor says otherwise.",
+      "url": "https://foxtale.in/products/retinol-anti-ageing-night-serum",
+      "size": "",
+      "price_inr": 599,
+      "price_source": "foxtale",
+      "shape": "dropper",
+      "avoid_if": {
+        "redness": 2,
+        "dryness_indicators": 2
+      },
+      "variant_id": "43797514125559"
+    },
+    {
+      "id": "collagen-pdrn-serum",
+      "name": "Collagen-PDRN Serum",
+      "step": "treat",
+      "when": "AM + PM",
+      "key_ingredients": [
+        "Collagen",
+        "PDRN",
+        "PGA",
+        "Niacinamide"
+      ],
+      "targets": [
+        "fine_lines",
+        "tone_evenness",
+        "texture"
+      ],
+      "skin_types": [
+        "normal",
+        "dry",
+        "combination"
+      ],
+      "active": false,
+      "how_it_works": "Foxtale describes a blend of collagen, PDRN, PGA and niacinamide made to support the skin's natural renewal, hydration and firmness. It is aimed at dullness, uneven-looking skin and early fine lines.",
+      "how_to_use": "Apply a few drops to clean skin before your moisturizer.",
+      "caution": "Patch-test first.",
+      "url": "https://foxtale.in/products/cell-renewal-collagen-pdrn-serum",
+      "size": "",
+      "price_inr": 695,
+      "price_source": "foxtale",
+      "shape": "dropper",
+      "avoid_if": {},
+      "variant_id": "50296311873783"
+    },
+    {
+      "id": "niacinamide-7-serum",
+      "name": "7% Niacinamide Brightening Complex Serum",
+      "step": "treat",
+      "when": "AM + PM",
+      "key_ingredients": [
+        "Niacinamide 7%",
+        "Olive leaf extract"
+      ],
+      "targets": [
+        "pores",
+        "dark_spots",
+        "oiliness",
+        "tone_evenness"
+      ],
+      "skin_types": [
+        "oily",
+        "combination",
+        "normal",
+        "dry"
+      ],
+      "active": false,
+      "how_it_works": "Niacinamide helps regulate oil and blur the look of pores, and can fade the look of marks and dullness with regular use. The light gel-cream leaves a smooth, primer-like finish.",
+      "how_to_use": "Apply to cleansed skin, then moisturize and use sunscreen in the morning.",
+      "caution": "Patch-test first. Lighter than the 12% serum, so a gentler place to start.",
+      "url": "https://foxtale.in/products/niacinamide-brightening-serum",
+      "size": "",
+      "price_inr": 545,
+      "price_source": "foxtale",
+      "shape": "dropper",
+      "avoid_if": {},
+      "variant_id": "51180682707191"
+    },
+    {
+      "id": "exfoliating-toner",
+      "name": "Exfoliating Facial Toner",
+      "step": "treat",
+      "when": "PM",
+      "key_ingredients": [
+        "Lactic acid 5%",
+        "Niacinamide",
+        "Hyaluronic acid"
+      ],
+      "targets": [
+        "blackheads",
+        "pores",
+        "texture",
+        "tone_evenness"
+      ],
+      "skin_types": [
+        "oily",
+        "combination",
+        "normal"
+      ],
+      "active": true,
+      "how_it_works": "Lactic acid gently loosens dead skin that clogs pores and dulls the surface, so blackheads, rough texture and enlarged-looking pores can look better. Niacinamide helps with oil and pore appearance and hyaluronic acid keeps skin hydrated.",
+      "how_to_use": "Put a few drops on a cotton pad and sweep over cleansed skin. Foxtale says it can be used morning and night; begin every other night and use sunscreen in the day.",
+      "caution": "Exfoliating acid: patch-test first, and skip it if your skin is red, dry or irritated.",
+      "url": "https://foxtale.in/products/exfoliating-facial-toner",
+      "size": "",
+      "price_inr": 395,
+      "price_source": "foxtale",
+      "shape": "dropper",
+      "avoid_if": {
+        "redness": 2,
+        "dryness_indicators": 2
+      },
+      "variant_id": "44978172985591"
     }
   ],
   "price_note": "Prices are Foxtale's own store prices read on 2026-09-25 and can change with offers. The AHA BHA Exfoliating Serum was not in the store feed that day, so its price is the printed MRP from retailer listings.",

@@ -80,6 +80,20 @@ def compute(scans: List[dict]) -> Dict[str, Any]:
     result["scoreSeries"] = [
         {"timestamp": s["timestamp"], "score": s["analysis"].get("overall_score")} for s in chronological
     ]
+    def feature_point(sc: dict) -> dict:
+        a, d = sc["analysis"], sc["analysis"].get("detail") or {}
+        acne = d.get("acne") or {}
+        return {
+            "timestamp": sc["timestamp"],
+            "overall": a.get("overall_score"),
+            "acne": acne.get("total", a.get("acne_like_spots", {}).get("count")),
+            "darkSpots": (d.get("dark_spots") or {}).get("coverage_pct"),
+            "uniformity": (d.get("uniformity") or {}).get("pct"),
+            "poresScore": round(100 * (d.get("pores") or {}).get("score", 0)) if d.get("pores") else None,
+            "redness": LEVEL_SCORE[a["redness"]["level"]],
+        }
+
+    result["featureSeries"] = [feature_point(s) for s in chronological]
     regions = Counter(r["region"] for s in scans for r in s["regions"])
     cats = Counter(r["category"] for s in scans for r in s["regions"])
     result["mostFrequentRegion"] = regions.most_common(1)[0][0].title() if regions else None

@@ -170,7 +170,8 @@ LIMITATIONS = (
 # Score weights, shown in the report so the overall score is traceable.
 SCORE_EXPLANATION = (
     "Overall score = 100 minus weighted visible concerns: spots 28%, redness 22%, texture 16%, "
-    "tone evenness 14%, dryness 12%, oiliness 8%."
+    "tone evenness 14%, dryness 12%, oiliness 8%, then a little more for dark spots, blackheads, visible pores, "
+    "under-eye darkness and fine lines."
 )
 
 
@@ -182,3 +183,151 @@ def category_areas(regions: List[RegionObservation], category: str) -> str:
     for r in matches:
         seen[r.region.title()] = None
     return ", ".join(seen)
+
+
+# ------------------------------------------------------------ detailed findings
+
+LEVEL_WORD = {"minimal": "Minimal", "mild": "Mild", "moderate": "Moderate", "noticeable": "High"}
+TEXTURE_WORD = {"minimal": "Smooth", "mild": "Slightly uneven", "moderate": "Uneven", "noticeable": "Rough"}
+
+
+def _count_level(n: int) -> str:
+    return "minimal" if n == 0 else "mild" if n <= 3 else "moderate" if n <= 8 else "noticeable"
+
+
+def _max_level(a: str, b: str) -> str:
+    return a if LEVEL_SCORE[a] >= LEVEL_SCORE[b] else b
+
+
+def _with_where(text: str, where: str, level: str) -> str:
+    return f"{text} {where}" if where and level != "minimal" else text
+
+
+def detail_rows(analysis: SkinAnalysis) -> List[Dict[str, object]]:
+    """The findings table: one row per thing the camera looks for, in plain words, with where it was found."""
+    d = analysis.detail or {}
+    hot = d.get("hotspots") or {}
+    rows: List[Dict[str, object]] = []
+
+    def row(key, icon, category, headline, level, note="", measured=True, where=""):
+        rows.append({"key": key, "icon": icon, "category": category, "headline": headline, "level": level,
+                     "note": note, "measured": measured, "where": where})
+
+    def unmeasured(key, icon, category, why="Scan again with the latest version to measure this."):
+        row(key, icon, category, f"{category}: not measured", None, why, measured=False)
+
+    # acne
+    acne = d.get("acne")
+    if acne:
+        level = _max_level(analysis.acne_like_spots.level, _count_level(acne["total"]))
+        parts = []
+        if acne["pimples"]:
+            parts.append(f"{acne['pimples']} pimple{'s' if acne['pimples'] != 1 else ''}"
+                         + (f" ({acne['pustules']} pustule-like)" if acne["pustules"] else ""))
+        if acne["blackheads"]:
+            parts.append(f"{acne['blackheads']} blackhead{'s' if acne['blackheads'] != 1 else ''}")
+        if acne["whiteheads"]:
+            parts.append(f"{acne['whiteheads']} whitehead{'s' if acne['whiteheads'] != 1 else ''}")
+        row("acne", "🔴", "Acne", f"Acne spots: {acne['total']} detected", level,
+            ", ".join(parts) or "No pimples, whiteheads or blackheads spotted.", where=acne.get("where", ""))
+    else:
+        n = analysis.acne_like_spots.count or 0
+        row("acne", "🔴", "Acne", f"Acne spots: {n} detected", analysis.acne_like_spots.level, "Pimple-like spots only.")
+
+    # dark spots
+    ds = d.get("dark_spots")
+    if ds:
+        note = f"{ds['count']} spot{'s' if ds['count'] != 1 else ''} covering about {ds['coverage_pct']:.1f}% of the skin"
+        if ds["count"]:
+            note += f" ({ds['acne_marks']} look like acne marks, {ds['sun_spots']} like sun or pigment spots)"
+        row("dark_spots", "🟤", "Dark spots", f"Dark spots: {LEVEL_WORD[ds['level']]}", ds["level"], note, where=ds.get("where", ""))
+    else:
+        unmeasured("dark_spots", "🟤", "Dark spots")
+
+    # uniformity
+    un = d.get("uniformity")
+    if un and un.get("pct") is not None:
+        pct = int(un["pct"])
+        level = "minimal" if pct >= 88 else "mild" if pct >= 75 else "moderate" if pct >= 60 else "noticeable"
+        row("uniformity", "🟡", "Uneven skin tone", f"Skin tone uniformity: {pct}%", level,
+            "How alike the colour is across forehead, cheeks, nose and chin. Higher is more even.")
+    elif analysis.tone_evenness:
+        row("uniformity", "🟡", "Uneven skin tone", f"Tone evenness: {LEVEL_WORD[analysis.tone_evenness.level]}",
+            analysis.tone_evenness.level, "Percentage not available for this scan.")
+    else:
+        unmeasured("uniformity", "🟡", "Uneven skin tone")
+
+    # texture
+    row("texture", "🧱", "Skin texture", f"Texture: {TEXTURE_WORD[analysis.texture.level]}", analysis.texture.level,
+        "How rough or bumpy the skin surface looks at pore scale.")
+
+    # under-eye
+    ue = d.get("under_eye")
+    if ue and ue.get("measured"):
+        note = ("Compared with the cheek just below the eye. "
+                + ("Eyes were located in the photo." if ue.get("eyes_found") else "Eye position was estimated from face proportions.")
+                + " Puffiness cannot be judged reliably from one flat photo, so it is not scored.")
+        row("under_eye", "👁️", "Under-eye", f"Under-eye darkness: {LEVEL_WORD[ue['level']]}", ue["level"], note)
+    else:
+        unmeasured("under_eye", "👁️", "Under-eye", "The under-eye area was not clearly visible (glasses, hair or shadow).")
+
+    # redness
+    row("redness", "🔴", "Redness", _with_where(f"Redness: {LEVEL_WORD[analysis.redness.level]}", hot.get("redness", ""), analysis.redness.level),
+        analysis.redness.level, "Visible redness or irritation compared with the rest of your skin.", where=hot.get("redness", ""))
+
+    # pores
+    po = d.get("pores")
+    if po:
+        word = {"minimal": "Low", "mild": "Low", "moderate": "Medium", "noticeable": "High"}[po["level"]]
+        row("pores", "🕳️", "Pores", _with_where(f"Pore visibility: {word}", po.get("hotspot", ""), po["level"]), po["level"],
+            f"About {po['count']} pore-like dots counted. Webcam photos only show the larger ones.", where=po.get("hotspot", ""))
+    else:
+        unmeasured("pores", "🕳️", "Pores")
+
+    # dryness, oiliness
+    row("dryness", "💧", "Dryness", _with_where(f"Dryness: {LEVEL_WORD[analysis.dryness_indicators.level]}", hot.get("dryness", ""), analysis.dryness_indicators.level),
+        analysis.dryness_indicators.level, "Dull, low-colour, patchy or fine-flaky looking areas.", where=hot.get("dryness", ""))
+    if analysis.oiliness:
+        row("oiliness", "✨", "Oiliness", _with_where(f"Oiliness: {LEVEL_WORD[analysis.oiliness.level]}", hot.get("oiliness", ""), analysis.oiliness.level),
+            analysis.oiliness.level, "Visible shine that looks like oil on the skin surface.", where=hot.get("oiliness", ""))
+
+    # scars
+    sc = d.get("scars")
+    if sc:
+        row("scars", "🩹", "Acne scars", "Possible acne scarring detected" if sc["possible"] else "No clear acne scarring",
+            "moderate" if sc["score"] >= 0.6 else "mild" if sc["possible"] else "minimal",
+            "Estimated from lingering acne marks and uneven texture. Scars that are indented need light from the side to judge, so this is a rough guide.")
+    else:
+        unmeasured("scars", "🩹", "Acne scars")
+
+    # fine lines
+    fl = d.get("fine_lines")
+    if fl:
+        row("fine_lines", "😌", "Fine lines", _with_where(f"Fine lines: {LEVEL_WORD[fl['level']]}", f"on the {fl['where']}" if fl.get("where") else "", fl["level"]),
+            fl["level"], "Thin creases found on the forehead and around the eyes.", where=fl.get("where", ""))
+    else:
+        unmeasured("fine_lines", "😌", "Fine lines")
+
+    # sun spots
+    sun = d.get("sun_spots")
+    if sun:
+        count = sun["count"]
+        row("sun_spots", "☀️", "Sun-related spots", "Sun spots detected" if sun["detected"] else "No clear sun spots",
+            "minimal" if not sun["detected"] else "mild" if count < 4 else "moderate",
+            f"{count} brownish spot{'s' if count != 1 else ''} with a well-defined edge.", where=sun.get("where", ""))
+    else:
+        unmeasured("sun_spots", "☀️", "Sun-related spots")
+
+    # facial hair (optional)
+    fh = d.get("facial_hair")
+    if fh and fh.get("measured"):
+        row("facial_hair", "🧔", "Facial hair", f"Facial hair: {fh['level'].title()}", None,
+            "Optional. It is left out of the skin scores and product advice.")
+    # symmetry
+    sy = d.get("symmetry")
+    if sy and sy.get("pct") is not None:
+        row("symmetry", "🧩", "Symmetry", f"Facial symmetry: {sy['pct']}%", None,
+            "Approximate. Head tilt, expression and lighting change it, and it says nothing about skin health.")
+    elif d:
+        row("symmetry", "🧩", "Symmetry", "Facial symmetry: not measured", None, "Not enough facial structure was visible to compare both sides.", measured=False)
+    return rows

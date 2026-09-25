@@ -4,7 +4,23 @@ import { Link } from "react-router-dom";
 import type { RegionObservation } from "../types/analysis";
 import { CATEGORY_COLORS } from "../lib/format";
 
-const CATEGORIES = ["Acne-like spots", "Redness", "Texture", "Dryness indicators", "Oiliness", "Tone evenness"];
+const CATEGORIES = [
+  "Acne-like spots", "Blackheads", "Whiteheads", "Dark spots", "Redness", "Texture", "Dryness indicators",
+  "Oiliness", "Tone evenness", "Under-eye", "Fine lines",
+];
+
+/** Filter choices: a group can cover several marker categories (all acne types together). */
+export const PHOTO_GROUPS: Record<string, { label: string; categories: string[] }> = {
+  acne: { label: "Acne (pimples, blackheads, whiteheads)", categories: ["Acne-like spots", "Blackheads", "Whiteheads"] },
+  dark: { label: "Dark spots", categories: ["Dark spots"] },
+  redness: { label: "Redness", categories: ["Redness"] },
+  texture: { label: "Texture", categories: ["Texture"] },
+  dryness: { label: "Dryness", categories: ["Dryness indicators"] },
+  oiliness: { label: "Oiliness", categories: ["Oiliness"] },
+  tone: { label: "Tone evenness", categories: ["Tone evenness"] },
+  eye: { label: "Under-eye", categories: ["Under-eye"] },
+  lines: { label: "Fine lines", categories: ["Fine lines"] },
+};
 
 export const REGION_BUCKETS = ["Forehead", "Cheeks", "Nose", "Chin", "Others"] as const;
 export const BUCKET_COLORS = ["#e54a00", "#f5a524", "#3b8dff", "#12a06a", "#8b7fd6"];
@@ -61,14 +77,15 @@ interface Props {
   regions: RegionObservation[];
   selected: RegionObservation | null;
   onSelect: (r: RegionObservation) => void;
+  group: string;
+  onGroupChange: (g: string) => void;
 }
 
-export default function PhotoPanel({ image, regions, selected, onSelect }: Props) {
+export default function PhotoPanel({ image, regions, selected, onSelect, group, onGroupChange }: Props) {
   const [heatmap, setHeatmap] = useState(false);
-  const [category, setCategory] = useState<string>("all");
   const visible = useMemo(
-    () => (category === "all" ? regions : regions.filter((r) => r.category === category)),
-    [regions, category]
+    () => (group === "all" ? regions : regions.filter((r) => PHOTO_GROUPS[group]?.categories.includes(r.category))),
+    [regions, group]
   );
 
   return (
@@ -77,9 +94,9 @@ export default function PhotoPanel({ image, regions, selected, onSelect }: Props
         <button className={`chip ${heatmap ? "chip-on" : ""}`} onClick={() => setHeatmap((h) => !h)} aria-pressed={heatmap}>
           <Flame size={16} className="text-fox-500" /> Heatmap
         </button>
-        <select className="input !w-auto !rounded-full" value={category} onChange={(e) => setCategory(e.target.value)} aria-label="Category filter">
+        <select className="input !w-auto !rounded-full" value={group} onChange={(e) => onGroupChange(e.target.value)} aria-label="Category filter">
           <option value="all">All categories</option>
-          {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+          {Object.entries(PHOTO_GROUPS).map(([k, g]) => <option key={k} value={k}>{g.label}</option>)}
         </select>
       </div>
 
