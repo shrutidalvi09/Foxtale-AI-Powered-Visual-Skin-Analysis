@@ -39,7 +39,7 @@ function TrendChart({ series, max = 100, lowerIsBetter = false, unit = "" }: { s
         </g>
       ))}
       <path
-        d={path} fill="none" stroke="#e54a00" strokeWidth="2.5" strokeLinejoin="round" pathLength={1}
+        d={path} fill="none" stroke="#e8541e" strokeWidth="2.5" strokeLinejoin="round" pathLength={1}
         strokeDasharray={1} strokeDashoffset={seen ? 0 : 1} style={{ transition: "stroke-dashoffset 1.4s cubic-bezier(0.22, 1, 0.36, 1)" }}
       />
       {pts.map((p, i) => (
@@ -168,7 +168,7 @@ export default function History() {
 
   return (
     <div className="animate-fade-up">
-      <PageHeader
+      <PageHeader page="history"
         title="Scan History" subtitle="Review your past skin scans and track changes over time."
         actions={
           <>
@@ -201,7 +201,7 @@ export default function History() {
                   { label: "Most-flagged region", value: insights?.mostFrequentRegion ?? "None yet" },
                   { label: "Most-flagged category", value: insights?.mostFrequentCategory ?? "None yet" },
                 ].map((s, i) => (
-                  <Reveal key={s.label} index={i}><div className="card lift p-5"><p className="text-xl font-extrabold text-ink">{s.value}</p><p className="text-sm text-muted">{s.label}</p></div></Reveal>
+                  <Reveal key={s.label} index={i}><div className="card lift p-5"><p className="text-xl font-bold text-ink">{s.value}</p><p className="text-sm text-muted">{s.label}</p></div></Reveal>
                 ))}
               </div>
 
@@ -230,11 +230,11 @@ export default function History() {
                 {visible.map((s, i) => (
                   <li key={s.id} className="card page-enter lift group flex flex-wrap items-center gap-x-5 gap-y-3 p-4" style={{ animationDelay: `${i * 55}ms` }}>
                     <button onClick={() => navigate(`/analysis/${s.id}`)} className="flex min-w-[200px] flex-1 items-center gap-4 text-left">
-                      <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-soft text-lg font-extrabold transition-transform duration-300 group-hover:scale-105" style={{ color: s.analysis.overall_score != null ? scoreColor(s.analysis.overall_score) : "var(--muted)" }}>
+                      <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-soft text-lg font-bold transition-transform duration-300 group-hover:scale-105" style={{ color: s.analysis.overall_score != null ? scoreColor(s.analysis.overall_score) : "var(--muted)" }}>
                         {s.analysis.overall_score ?? "--"}
                       </span>
                       <span>
-                        <span className="block font-extrabold text-ink">{formatDate(s.timestamp)}</span>
+                        <span className="block font-bold text-ink">{formatDate(s.timestamp)}</span>
                         <span className="block max-w-[320px] truncate text-sm text-muted">{s.note || "No note"}</span>
                       </span>
                     </button>
@@ -304,7 +304,7 @@ export default function History() {
               {trash.map((s) => (
                 <li key={s.id} className="card flex flex-wrap items-center justify-between gap-3 p-4">
                   <div>
-                    <p className="font-extrabold text-ink">{formatDate(s.timestamp)}</p>
+                    <p className="font-bold text-ink">{formatDate(s.timestamp)}</p>
                     <p className="text-sm text-muted">{s.daysLeft} day{s.daysLeft === 1 ? "" : "s"} left</p>
                   </div>
                   <div className="flex gap-2">

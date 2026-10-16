@@ -38,7 +38,7 @@ export default function Welcome() {
     <div className="mx-auto flex min-h-[80vh] max-w-2xl flex-col justify-center py-4">
       <div className="mb-8 flex items-center justify-center gap-2.5">
         <img src="/logo_mark.png" alt="" className="h-10 w-10 object-contain" />
-        <span className="text-2xl font-extrabold text-ink">fox<span className="text-fox-500">tale</span></span>
+        <span className="text-2xl font-bold text-ink">fox<span className="text-fox-500">tale</span></span>
       </div>
 
       {step < 3 ? (
@@ -49,7 +49,7 @@ export default function Welcome() {
             return (
               <>
                 <span className={`pop float mx-auto flex h-20 w-20 items-center justify-center rounded-full ${s.tone}`}><Icon size={34} /></span>
-                <h1 className="mt-6 text-2xl font-extrabold text-ink sm:text-3xl">{s.title}</h1>
+                <h1 className="mt-6 text-2xl font-bold text-ink sm:text-3xl">{s.title}</h1>
                 <p className="mx-auto mt-3 max-w-md text-muted">{s.body}</p>
               </>
             );
@@ -64,7 +64,7 @@ export default function Welcome() {
         </div>
       ) : (
         <div className="card page-enter p-6 sm:p-8">
-          <h1 className="text-2xl font-extrabold text-ink">A few quick questions</h1>
+          <h1 className="text-2xl font-bold text-ink">A few quick questions</h1>
           <p className="mt-1 text-sm text-muted">This makes your product suggestions safer and more personal. You can change any answer later in Settings.</p>
           <div className="mt-6"><ProfileForm initial={profile} onSubmit={finish} submitLabel="Finish and go to my dashboard" busy={busy} /></div>
           <p className="mt-5 flex items-start gap-2 text-xs text-muted"><ShieldCheck size={14} className="mt-0.5 shrink-0 text-emerald-600" /> Your answers are stored only on your own server and used only to personalise suggestions.</p>

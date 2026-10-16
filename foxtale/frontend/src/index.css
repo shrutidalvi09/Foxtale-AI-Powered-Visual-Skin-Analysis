@@ -2,28 +2,52 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Design tokens. Tailwind maps these in tailwind.config.js (bg-app, text-ink, rounded-card, shadow-card, font-display...). */
 :root {
+  /* sampled from the reference dashboard: cool near-white page, warm cream hero, peach accents */
   --bg: #f5f6fa;
   --card: #ffffff;
-  --soft: #f7f8fc;
-  --ink: #1b2233;
-  --muted: #6b7385;
-  --line: #e6e9f2;
+  --soft: #f7f8fb;
+  --ink: #1e2433;
+  /* muted grey dark enough for WCAG AA (4.5:1) on white and on the cream hero */
+  --muted: #626a7c;
+  --line: #e9ebf1;
+  --sidebar: #fdfbf9;
+  --tint: #fdeee6; /* icon chips */
+  --peach: #fff2e8; /* active nav pill */
+  --hero-from: #f8eee3;
+  --hero-to: #f6e9dc;
+  --radius-card: 18px;
+  --radius-hero: 24px;
+  --shadow-card: 0 2px 12px rgba(120, 60, 30, 0.04);
+  --shadow-card-hover: 0 12px 28px rgba(120, 60, 30, 0.1);
+  --shadow-glow: 0 8px 22px rgba(232, 84, 30, 0.3);
+  --font-display: "Playfair Display", Georgia, ui-serif, serif;
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   color-scheme: light;
 }
 
+/* warm dark browns, never pure black */
 .dark {
-  --bg: #0b1224;
-  --card: #111a33;
-  --soft: #141c31;
-  --ink: #eef1f8;
-  --muted: #9aa5bf;
-  --line: #24304f;
+  --bg: #16100d;
+  --card: #201814;
+  --soft: #2a201b;
+  --ink: #f5ede8;
+  --muted: #b5a79f;
+  --line: #3a2d26;
+  --sidebar: #1b1410;
+  --tint: #3a2216;
+  --peach: #3d2417;
+  --hero-from: #2c1c14;
+  --hero-to: #1f1612;
+  --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.25);
+  --shadow-card-hover: 0 12px 28px rgba(0, 0, 0, 0.4);
+  --shadow-glow: 0 8px 22px rgba(232, 84, 30, 0.25);
   color-scheme: dark;
 }
 
 html {
-  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-sans);
 }
 
 body {
@@ -33,7 +57,7 @@ body {
 
 @layer components {
   .card {
-    @apply rounded-[20px] border border-line bg-card shadow-card;
+    @apply rounded-card border border-line bg-card shadow-card;
   }
 
   .btn-cta {
@@ -61,7 +85,7 @@ body {
   }
 
   .label-caps {
-    @apply text-[10.5px] font-extrabold uppercase tracking-[0.1em] text-muted;
+    @apply text-[10.5px] font-bold uppercase tracking-[0.1em] text-muted;
   }
 
   .input {
@@ -111,7 +135,7 @@ footer,
 }
 
 :focus-visible {
-  outline: 2px solid #e54a00;
+  outline: 2px solid #e8541e;
   outline-offset: 2px;
   border-radius: 12px;
 }
@@ -161,8 +185,8 @@ a.btn-soft {
   animation: ctapulse 2.8s ease-in-out infinite;
 }
 @keyframes ctapulse {
-  0%, 100% { box-shadow: 0 10px 26px rgba(229, 74, 0, 0.32); }
-  50% { box-shadow: 0 12px 34px rgba(229, 74, 0, 0.5), 0 0 0 6px rgba(229, 74, 0, 0.08); }
+  0%, 100% { box-shadow: 0 10px 26px rgba(232, 84, 30, 0.32); }
+  50% { box-shadow: 0 12px 34px rgba(232, 84, 30, 0.5), 0 0 0 6px rgba(232, 84, 30, 0.08); }
 }
 
 /* entrance + scroll reveal */
@@ -307,11 +331,18 @@ a.btn-soft {
 
 /* card hover lift */
 .lift {
-  transition: transform 0.3s var(--ease-out), box-shadow 0.3s var(--ease-out), border-color 0.3s ease;
+  transition: transform 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out), border-color 0.2s ease;
 }
 .lift:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 14px 34px rgba(20, 30, 60, 0.13);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 .zoom-img img {
   transition: transform 0.6s var(--ease-out);

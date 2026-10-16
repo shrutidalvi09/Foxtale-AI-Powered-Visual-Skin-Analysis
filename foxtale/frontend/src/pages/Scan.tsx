@@ -136,7 +136,7 @@ export default function Scan() {
 
   return (
     <div className="animate-fade-up">
-      <PageHeader title="Skin Scan" subtitle="Capture a clear photo of your face for a visible-skin analysis." />
+      <PageHeader page="scan" title="Skin Scan" subtitle="Capture a clear photo of your face for a visible-skin analysis." />
 
       {whatsapp === null && backendOnline !== false ? (
         <Spinner label="Checking your WhatsApp setup" />
@@ -182,7 +182,7 @@ export default function Scan() {
 
         <aside className="space-y-5">
           <div className="card p-5">
-            <h2 className="text-[15px] font-extrabold text-ink">Best scan tips</h2>
+            <h2 className="text-[15px] font-bold text-ink">Best scan tips</h2>
             <ul className="mt-3 space-y-3">
               {TIPS.map(({ icon: Icon, text }) => (
                 <li key={text} className="flex items-center gap-3 text-sm text-ink">
@@ -193,7 +193,7 @@ export default function Scan() {
             </ul>
           </div>
           <div className="card p-5">
-            <h2 className="text-[15px] font-extrabold text-ink">What happens next</h2>
+            <h2 className="text-[15px] font-bold text-ink">What happens next</h2>
             <ol className="mt-3 space-y-2 text-sm text-muted">
               <li><b className="text-ink">1.</b> Press Analyze after capturing.</li>
               <li><b className="text-ink">2.</b> Your photo is measured on this computer.</li>

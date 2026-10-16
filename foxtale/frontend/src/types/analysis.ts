@@ -82,6 +82,7 @@ export interface CategoryRow {
   confidence: number;
   measurement: string;
   meaning: string;
+  score?: number;
 }
 
 export interface Suggestion {
@@ -123,6 +124,7 @@ export interface Finding {
   note: string;
   where: string;
   measured: boolean;
+  score?: number | null;
 }
 
 export interface Report {
@@ -198,4 +200,120 @@ export interface PrivacyStats {
   imageCount: number;
   diskBytes: number;
   dataDir: string;
+}
+
+// ------------------------------------------------------------ Custom Skin AI
+
+export type AiSeverity = "none" | "mild" | "moderate" | "marked";
+
+export interface AiFinding {
+  id: string;
+  region: string;
+  type: string;
+  severity: AiSeverity;
+  evidence: string;
+  confidence: number;
+  uncertain_reason?: string | null;
+}
+
+export interface AiRoutineSuggestion {
+  goal: string;
+  suggestion: string;
+}
+
+export interface AiSafetyFlag {
+  finding_id: string;
+  reason: string;
+}
+
+export interface AiResult {
+  findings: AiFinding[];
+  overall_summary: string;
+  routine_suggestions: AiRoutineSuggestion[];
+  lifestyle_notes: string[];
+  retake_advice?: string | null;
+  safety_flags: AiSafetyFlag[];
+  image_notes: { makeup_suspected: boolean; filtered_or_edited_suspected: boolean };
+  moderation_redacted: boolean;
+  source: "model" | "fallback";
+}
+
+export interface AiReferral {
+  recommended: boolean;
+  urgent: boolean;
+  reasons: string[];
+  disclaimer: string;
+}
+
+export type AiStatus = "none" | "disabled" | "pending" | "rate_limited" | "ready" | "fallback" | "failed";
+
+export interface AiAnalysis {
+  status: AiStatus;
+  provider?: string | null;
+  model?: string | null;
+  promptVersion?: string | null;
+  fromCache?: boolean;
+  error?: string | null;
+  updatedAt?: string | null;
+  result?: AiResult;
+  referral?: AiReferral;
+}
+
+export interface AiConsentStatus {
+  enabled: boolean;
+  improveConsent: boolean;
+  configured: boolean;
+  provider: string;
+  model: string;
+  dryRun: boolean;
+  disclosure: string;
+}
+
+// -------------------------------------------------------------------- Voice Guide
+
+export type VoiceLang = "en" | "hi" | "mr";
+
+export type VoiceActionType =
+  | "navigate_dashboard" | "navigate_scan" | "navigate_analysis" | "navigate_routine" | "navigate_diary"
+  | "navigate_shop" | "navigate_ingredient_check" | "navigate_history" | "navigate_compare"
+  | "navigate_privacy" | "navigate_settings"
+  | "start_scan" | "retake_photo" | "show_last_scan" | "compare_last_week" | "explain_score"
+  | "repeat" | "louder" | "quieter" | "stop_speaking" | "mute" | "unmute" | "skip_guide"
+  | "wipe_data" | "none";
+
+export interface VoiceAction {
+  type: VoiceActionType;
+  params: Record<string, string>;
+}
+
+export interface GuideReply {
+  speech: string;
+  action: VoiceAction | null;
+  needs_confirmation: boolean;
+  clarifying_question?: string | null;
+  lang: VoiceLang;
+  source: "intent" | "llm" | "fallback";
+}
+
+export interface VoiceStatus {
+  enabled: boolean;
+  wakeWordEnabled: boolean;
+  language: VoiceLang;
+  speed: number;
+  volume: number;
+  captionsEnabled: boolean;
+  transcriptsConsent: boolean;
+  configured: boolean;
+  provider: string;
+  model: string;
+  dryRun: boolean;
+  disclosure: string;
+}
+
+export interface VoiceTranscript {
+  sessionId: string;
+  transcript: string;
+  reply: string;
+  action: string;
+  createdAt: string;
 }

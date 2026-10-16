@@ -6,3 +6,5 @@ numpy>=1.26.4
 pydantic>=2.9.2
 reportlab>=4.0
 httpx>=0.27
+anthropic>=0.40  # Custom Skin AI vision calls (core/skin_ai_provider.py); not required if AI_DRY_RUN=1
+pytest>=8.0  # backend/tests/

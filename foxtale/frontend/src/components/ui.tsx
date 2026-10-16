@@ -1,6 +1,9 @@
 import { useEffect } from "react";
 import type { ReactNode } from "react";
-import { ShieldAlert, X } from "lucide-react";
+import {
+  BarChart3, Camera, FlaskConical, GitCompare, History, Info, ListChecks, Lock, NotebookPen, Settings, ShieldAlert, Store, X,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import type { SeverityLevel } from "../types/analysis";
 import { scoreColor } from "../lib/format";
 import { useCountUp, useInView } from "../lib/motion";
@@ -11,13 +14,13 @@ export function LevelPill({ level, className = "" }: { level: SeverityLevel; cla
 
 export function IconBadge({ children, tone = "fox" }: { children: ReactNode; tone?: "fox" | "green" | "blue" | "violet" }) {
   const tones = {
-    fox: "bg-fox-50 text-fox-500 dark:bg-fox-500/15",
-    green: "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15",
-    blue: "bg-blue-50 text-blue-600 dark:bg-blue-500/15",
-    violet: "bg-violet-50 text-violet-600 dark:bg-violet-500/15",
+    fox: "bg-tint text-fox-500",
+    green: "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300",
+    blue: "bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300",
+    violet: "bg-violet-50 text-violet-600 dark:bg-violet-500/15 dark:text-violet-300",
   };
   return (
-    <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${tones[tone]}`}>{children}</span>
+    <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${tones[tone]}`}>{children}</span>
   );
 }
 
@@ -26,22 +29,46 @@ export function SectionTitle({ title, subtitle, icon }: { title: string; subtitl
     <div className="flex items-start gap-3">
       {icon && <IconBadge>{icon}</IconBadge>}
       <div>
-        <h2 className="text-[15px] font-extrabold text-ink">{title}</h2>
-        {subtitle && <p className="mt-0.5 text-sm text-muted">{subtitle}</p>}
+        <h2 className="text-lg font-bold text-ink">{title}</h2>
+        {subtitle && <p className="mt-1 text-sm text-muted">{subtitle}</p>}
       </div>
     </div>
   );
 }
 
-export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: ReactNode }) {
+/** Eyebrow label and watermark icon for each page header (the icon matches the page's sidebar link). */
+const PAGE_META = {
+  scan: { eyebrow: "AI Skin Analysis", icon: Camera },
+  analysis: { eyebrow: "Your Report", icon: BarChart3 },
+  routine: { eyebrow: "Daily Care", icon: ListChecks },
+  diary: { eyebrow: "Track & Reflect", icon: NotebookPen },
+  shop: { eyebrow: "Foxtale Store", icon: Store },
+  ingredients: { eyebrow: "Know Your Formula", icon: FlaskConical },
+  history: { eyebrow: "Your Journey", icon: History },
+  compare: { eyebrow: "Progress", icon: GitCompare },
+  privacy: { eyebrow: "Your Data", icon: Lock },
+  settings: { eyebrow: "Preferences", icon: Settings },
+  info: { eyebrow: "Foxtale", icon: Info },
+} satisfies Record<string, { eyebrow: string; icon: LucideIcon }>;
+
+/** Page title band: a compact version of the dashboard hero (cream gradient, eyebrow, serif title). */
+export function PageHeader({ title, subtitle, actions, page }: { title: string; subtitle?: string; actions?: ReactNode; page?: keyof typeof PAGE_META }) {
+  const meta = page ? PAGE_META[page] : null;
+  const Icon = meta?.icon;
   return (
-    <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-      <div>
-        <h1 className="text-2xl font-extrabold uppercase tracking-wide text-ink sm:text-[28px]">{title}</h1>
-        {subtitle && <p className="mt-1 text-sm text-muted">{subtitle}</p>}
+    <section className="relative mb-6 overflow-hidden rounded-hero border border-line bg-[linear-gradient(100deg,var(--hero-from)_42%,var(--hero-to))] px-6 py-6 sm:px-8 sm:py-7">
+      {Icon && !actions && (
+        <Icon size={150} strokeWidth={0.75} aria-hidden className="pointer-events-none absolute -bottom-6 right-8 hidden text-fox-500/15 sm:block" />
+      )}
+      <div className="relative flex flex-wrap items-end justify-between gap-4">
+        <div className="max-w-2xl">
+          {meta && <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-ink/70">{meta.eyebrow}</p>}
+          <h1 className="font-display text-[28px] font-medium leading-tight text-ink sm:text-[34px]">{title}</h1>
+          {subtitle && <p className="mt-2 text-[15px] leading-relaxed text-muted">{subtitle}</p>}
+        </div>
+        {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
       </div>
-      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
-    </div>
+    </section>
   );
 }
 
@@ -78,7 +105,7 @@ export function ScoreRing({ score, size = 132 }: { score: number | null | undefi
         )}
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-[34px] font-extrabold leading-none text-ink">{score == null ? "--" : shown}</span>
+        <span className="text-[34px] font-bold leading-none text-ink">{score == null ? "--" : shown}</span>
         {score != null && <span className="mt-1 text-[11px] text-muted">out of 100</span>}
       </div>
     </div>
@@ -115,7 +142,7 @@ export function Modal({ open, onClose, title, children }: { open: boolean; onClo
         className="card pop w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-start justify-between gap-4">
-          <h3 className="text-lg font-extrabold text-ink">{title}</h3>
+          <h3 className="text-lg font-bold text-ink">{title}</h3>
           <button onClick={onClose} aria-label="Close" className="rounded-full p-1 text-muted hover:bg-soft"><X size={18} /></button>
         </div>
         {children}
@@ -128,7 +155,7 @@ export function EmptyState({ icon, title, body, action }: { icon: ReactNode; tit
   return (
     <div className="card page-enter mx-auto flex max-w-lg flex-col items-center px-8 py-14 text-center">
       <span className="pop float mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-fox-50 text-fox-500 dark:bg-fox-500/15">{icon}</span>
-      <h2 className="text-xl font-extrabold text-ink">{title}</h2>
+      <h2 className="text-xl font-bold text-ink">{title}</h2>
       <p className="mt-2 text-sm text-muted">{body}</p>
       {action && <div className="mt-6">{action}</div>}
     </div>

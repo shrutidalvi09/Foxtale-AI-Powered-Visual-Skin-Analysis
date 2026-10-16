@@ -5,7 +5,8 @@ webcam and produces a **visual, non-diagnostic** skin observation report —
 acne-like spots, redness, texture, and dryness indicators — entirely on your
 own machine. No server, no network calls, no telemetry.
 
-This is the desktop sibling of the Foxtale web app (`../foxtale`), sharing
+This is the desktop sibling of the Foxtale web app 
+
 the same underlying analysis approach but built as a self-contained native
 GUI with a deeper feature set (calibration, hands-free capture, trend
 insights, system tray, full data backup, and more — detailed below).

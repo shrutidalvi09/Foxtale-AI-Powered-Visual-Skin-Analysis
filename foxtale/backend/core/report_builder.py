@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 
 from core import conflicts as cf
 from core import report_content as rc
+from core import skin_ai_referral as ref
 from core import skincare_advisor as adv
 from core.recommendations import build_recommendations
 from engine.schemas import RegionObservation, SkinAnalysis
@@ -17,7 +18,7 @@ PRODUCT_IMAGES = Path(__file__).resolve().parent.parent / "assets" / "products"
 def _category_row(row: rc.CategoryRow) -> Dict[str, Any]:
     return {
         "key": row.key, "label": row.label, "level": row.level, "confidence": row.confidence,
-        "measurement": row.measurement, "meaning": row.meaning,
+        "measurement": row.measurement, "meaning": row.meaning, "score": row.score,
     }
 
 
@@ -93,6 +94,9 @@ def build(analysis_dict: dict, regions: List[dict], previous_dict: Optional[dict
         "areas": {key: rc.category_areas(region_obs, key) for key, _label, _attr in rc.CATEGORY_ORDER},
         "findings": rc.detail_rows(analysis),
         "profile": _profile(analysis, profile),
+        # Deterministic only (no AI call here) -- see core.skin_ai_referral. The /api/ai/{scanId}
+        # endpoint returns a richer version of this same block once an AI analysis exists.
+        "referral": ref.recommend(None, analysis_dict),
         "skincare": {
             "skinType": profile.skin_type,
             "tone": profile.tone or None,

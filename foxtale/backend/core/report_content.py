@@ -44,6 +44,7 @@ class CategoryRow:
     confidence: float
     measurement: str
     meaning: str
+    score: int = 0  # 0-100, how visible this is (higher = more visible)
 
 
 @dataclass
@@ -73,6 +74,29 @@ def _measurement(key: str, a: SkinAnalysis) -> str:
     return ""
 
 
+# region_scores sub-score key for each category attribute
+_REGION_KEY = {
+    "acne_like_spots": "spot_score", "redness": "redness", "texture": "texture",
+    "dryness_indicators": "dryness", "oiliness": "oiliness", "tone_evenness": "evenness",
+}
+# used when a scan has no raw sub-scores (older engine versions)
+_LEVEL_MIDPOINT = {"minimal": 8, "mild": 25, "moderate": 47, "noticeable": 75}
+
+
+def level_score(level: Optional[str]) -> int:
+    return _LEVEL_MIDPOINT.get(level or "", 0)
+
+
+def category_score(analysis: SkinAnalysis, attr: str) -> int:
+    """0-100 visibility of one category: the mean of its per-region 0-1 sub-scores."""
+    key = _REGION_KEY.get(attr)
+    vals = [float(v[key]) for v in (analysis.region_scores or {}).values() if key and key in v]
+    if vals:
+        return int(round(100 * min(1.0, sum(vals) / len(vals))))
+    result: Optional[CategoryResult] = getattr(analysis, attr, None)
+    return level_score(result.level if result else None)
+
+
 def category_rows(analysis: SkinAnalysis) -> List[CategoryRow]:
     rows = []
     for key, label, attr in CATEGORY_ORDER:
@@ -82,6 +106,7 @@ def category_rows(analysis: SkinAnalysis) -> List[CategoryRow]:
         rows.append(CategoryRow(
             key=key, label=label, level=result.level, confidence=result.confidence,
             measurement=_measurement(key, analysis), meaning=WHAT_IT_MEANS[key],
+            score=category_score(analysis, attr),
         ))
     return rows
 
@@ -209,9 +234,24 @@ def detail_rows(analysis: SkinAnalysis) -> List[Dict[str, object]]:
     hot = d.get("hotspots") or {}
     rows: List[Dict[str, object]] = []
 
+    detail_attr = {"acne": "acne_like_spots", "texture": "texture", "redness": "redness",
+                   "dryness": "dryness_indicators", "oiliness": "oiliness"}
+    detail_key = {"dark_spots": "dark_spots", "pores": "pores", "under_eye": "under_eye",
+                  "fine_lines": "fine_lines", "scars": "scars"}
+
+    def score_for(key, level, measured):
+        if not measured:
+            return None
+        if key in detail_attr:
+            return max(category_score(analysis, detail_attr[key]), level_score(level) if key == "acne" else 0)
+        raw = (d.get(detail_key.get(key, ""), {}) or {}).get("score")
+        if raw is not None:
+            return int(round(100 * min(1.0, float(raw))))
+        return level_score(level) if level else None
+
     def row(key, icon, category, headline, level, note="", measured=True, where=""):
         rows.append({"key": key, "icon": icon, "category": category, "headline": headline, "level": level,
-                     "note": note, "measured": measured, "where": where})
+                     "note": note, "measured": measured, "where": where, "score": score_for(key, level, measured)})
 
     def unmeasured(key, icon, category, why="Scan again with the latest version to measure this."):
         row(key, icon, category, f"{category}: not measured", None, why, measured=False)

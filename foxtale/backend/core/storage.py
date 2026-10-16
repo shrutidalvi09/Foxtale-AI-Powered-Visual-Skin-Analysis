@@ -39,6 +39,23 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
     "digest_hour": 9,
     "digest_last_sent": "",  # set by the server only
     "location": {},  # {name, lat, lon} of the city used for skin weather
+    # Custom Skin AI (core/skin_ai_*.py). Both default off: ai_enabled is consent to send a
+    # cropped photo to the configured AI provider for a written description; ai_improve_consent
+    # is the separate, narrower consent to keep anonymized findings + feedback for future
+    # evaluation/training (see core.skin_ai_analyst.add_feedback).
+    "ai_enabled": False,
+    "ai_improve_consent": False,
+    # Voice Guide (core/guide_*.py). All default off/safe: voice_enabled turns on the mic button
+    # and spoken replies; wake_word_enabled adds foreground-only best-effort wake-phrase listening;
+    # voice_transcripts_consent is the separate, narrower consent to keep text transcripts (never
+    # audio) of what was said, for debugging/review -- see core.guide_service.
+    "voice_enabled": False,
+    "wake_word_enabled": False,
+    "voice_language": "en",
+    "voice_speed": 1.0,
+    "voice_volume": 1.0,
+    "captions_enabled": True,
+    "voice_transcripts_consent": False,
 }
 
 SERVER_CONTROLLED = {"whatsapp_number", "whatsapp_verified", "whatsapp_skipped", "digest_last_sent"}
@@ -71,6 +88,20 @@ def _connect() -> sqlite3.Connection:
     conn.execute(
         "CREATE TABLE IF NOT EXISTS deliveries (scan_id TEXT PRIMARY KEY, status TEXT NOT NULL, "
         "error TEXT, updated_at TEXT NOT NULL)"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS ai_analyses (scan_id TEXT PRIMARY KEY, status TEXT NOT NULL, "
+        "provider TEXT, model TEXT, prompt_version TEXT, result_json TEXT, referral_json TEXT, "
+        "from_cache INTEGER DEFAULT 0, error TEXT, updated_at TEXT NOT NULL)"
+    )
+    conn.execute("CREATE TABLE IF NOT EXISTS ai_cache (key TEXT PRIMARY KEY, result_json TEXT NOT NULL, created_at TEXT NOT NULL)")
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS ai_feedback (id INTEGER PRIMARY KEY AUTOINCREMENT, scan_id TEXT NOT NULL, "
+        "finding_id TEXT NOT NULL, vote TEXT NOT NULL, comment TEXT DEFAULT '', created_at TEXT NOT NULL)"
+    )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS guide_transcripts (id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL, "
+        "transcript TEXT NOT NULL, reply TEXT NOT NULL, action TEXT, created_at TEXT NOT NULL)"
     )
     return conn
 
@@ -305,6 +336,10 @@ def wipe_all() -> None:
         conn.execute("DELETE FROM routine_logs")
         conn.execute("DELETE FROM product_usage")
         conn.execute("DELETE FROM diary")
+        conn.execute("DELETE FROM ai_analyses")
+        conn.execute("DELETE FROM ai_cache")
+        conn.execute("DELETE FROM ai_feedback")
+        conn.execute("DELETE FROM guide_transcripts")
     conn.close()
 
 
@@ -445,3 +480,109 @@ def diary_delete(day: str) -> None:
     with conn:
         conn.execute("DELETE FROM diary WHERE day = ?", (day,))
     conn.close()
+
+
+# ----------------------------------------------------------------- custom skin ai
+
+def ai_set(scan_id: str, status: str, provider: Optional[str] = None, model: Optional[str] = None,
+          prompt_version: Optional[str] = None, result_json: Optional[str] = None,
+          referral_json: Optional[str] = None, from_cache: bool = False, error: Optional[str] = None) -> None:
+    conn = _connect()
+    with conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO ai_analyses "
+            "(scan_id, status, provider, model, prompt_version, result_json, referral_json, from_cache, error, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (scan_id, status, provider, model, prompt_version, result_json, referral_json,
+             1 if from_cache else 0, error, datetime.now().isoformat()),
+        )
+    conn.close()
+
+
+def ai_get(scan_id: str) -> Optional[Dict[str, Any]]:
+    conn = _connect()
+    row = conn.execute(
+        "SELECT status, provider, model, prompt_version, result_json, referral_json, from_cache, error, updated_at "
+        "FROM ai_analyses WHERE scan_id = ?", (scan_id,),
+    ).fetchone()
+    conn.close()
+    if not row:
+        return None
+    keys = ("status", "provider", "model", "promptVersion", "result_json", "referral_json", "fromCache", "error", "updatedAt")
+    out = dict(zip(keys, row))
+    out["fromCache"] = bool(out["fromCache"])
+    return out
+
+
+def ai_cache_get(key: str, max_age_days: int) -> Optional[str]:
+    conn = _connect()
+    row = conn.execute("SELECT result_json, created_at FROM ai_cache WHERE key = ?", (key,)).fetchone()
+    conn.close()
+    if not row:
+        return None
+    result_json, created_at = row
+    if (datetime.now() - datetime.fromisoformat(created_at)).days > max_age_days:
+        return None
+    return result_json
+
+
+def ai_cache_put(key: str, result_json: str) -> None:
+    conn = _connect()
+    with conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO ai_cache (key, result_json, created_at) VALUES (?, ?, ?)",
+            (key, result_json, datetime.now().isoformat()),
+        )
+    conn.close()
+
+
+def ai_feedback_add(scan_id: str, finding_id: str, vote: str, comment: str, created_at: str) -> None:
+    conn = _connect()
+    with conn:
+        conn.execute(
+            "INSERT INTO ai_feedback (scan_id, finding_id, vote, comment, created_at) VALUES (?, ?, ?, ?, ?)",
+            (scan_id, finding_id, vote, comment, created_at),
+        )
+    conn.close()
+
+
+def ai_feedback_list(scan_id: str) -> List[Dict[str, Any]]:
+    conn = _connect()
+    rows = conn.execute(
+        "SELECT finding_id, vote, comment, created_at FROM ai_feedback WHERE scan_id = ? ORDER BY created_at",
+        (scan_id,),
+    ).fetchall()
+    conn.close()
+    return [{"findingId": r[0], "vote": r[1], "comment": r[2], "createdAt": r[3]} for r in rows]
+
+
+# ------------------------------------------------------------------------ voice guide
+
+def guide_transcript_add(session_id: str, transcript: str, reply: str, action: str, created_at: str) -> None:
+    """Text only -- never audio. Only called when voice_transcripts_consent is on
+    (core.guide_service._maybe_log_transcript)."""
+    conn = _connect()
+    with conn:
+        conn.execute(
+            "INSERT INTO guide_transcripts (session_id, transcript, reply, action, created_at) VALUES (?, ?, ?, ?, ?)",
+            (session_id, transcript, reply, action, created_at),
+        )
+    conn.close()
+
+
+def guide_transcript_list(limit: int = 200) -> List[Dict[str, Any]]:
+    conn = _connect()
+    rows = conn.execute(
+        "SELECT session_id, transcript, reply, action, created_at FROM guide_transcripts "
+        "ORDER BY created_at DESC LIMIT ?", (limit,),
+    ).fetchall()
+    conn.close()
+    return [{"sessionId": r[0], "transcript": r[1], "reply": r[2], "action": r[3], "createdAt": r[4]} for r in rows]
+
+
+def guide_transcripts_clear() -> int:
+    conn = _connect()
+    with conn:
+        cur = conn.execute("DELETE FROM guide_transcripts")
+    conn.close()
+    return cur.rowcount

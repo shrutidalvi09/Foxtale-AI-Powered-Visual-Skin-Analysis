@@ -91,7 +91,7 @@ export function WhatsAppGate() {
           <MessageCircle size={26} />
         </span>
         <div>
-          <h2 className="text-xl font-extrabold text-ink">Get your report on WhatsApp</h2>
+          <h2 className="text-xl font-bold text-ink">Get your report on WhatsApp</h2>
           <p className="text-sm text-muted">Register your number once. Every scan report is then sent to it automatically.</p>
         </div>
       </div>
@@ -142,7 +142,7 @@ export function WhatsAppGate() {
         <form key="code" className="page-enter mt-6 space-y-4" onSubmit={(e) => { e.preventDefault(); if (code.length === 6) verify(); }}>
           <p className="text-sm text-ink">We sent a 6-digit code to <b>{masked}</b> on WhatsApp. It is valid for 10 minutes.</p>
           <input
-            ref={codeRef} className="input text-center text-2xl font-extrabold tracking-[0.5em]" inputMode="numeric"
+            ref={codeRef} className="input text-center text-2xl font-bold tracking-[0.5em]" inputMode="numeric"
             autoComplete="one-time-code" maxLength={6} placeholder="••••••" value={code} aria-label="Verification code"
             onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
           />

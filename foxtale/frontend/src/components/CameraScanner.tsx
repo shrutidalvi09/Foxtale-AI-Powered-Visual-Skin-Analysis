@@ -1,13 +1,33 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { AlertTriangle, Camera, ImagePlus, RotateCcw, ScanSearch, Sparkles, Video, VideoOff } from "lucide-react";
+import { useVoice } from "../context/VoiceContext";
 import { liveScan } from "../services/api";
 import type { LiveResult } from "../services/api";
+import type { VoiceLang } from "../types/analysis";
 
 const WARMUP_MIN_FRAMES = 8;
 const WARMUP_MIN_LEVEL = 12;
 const WARMUP_TIMEOUT_MS = 4000;
 const BURST_FRAMES = 5;
 const BURST_GAP_MS = 90;
+const HINT_COOLDOWN_MS = 4000;
+
+/** Short, spoken coaching lines from Fox for hands-free scanning -- layered on top of the
+ * existing live-quality checks above, never replacing them. Kept separate from her backend
+ * phrase lists since these are purely local, instant reactions to the live camera feed. */
+const HINTS: Record<string, Record<VoiceLang, string>> = {
+  "lighting:too_dark": { en: "Add a bit more light.", hi: "थोड़ी और रोशनी चाहिए।", mr: "थोडा अधिक प्रकाश हवा." },
+  "lighting:too_bright": { en: "That's too bright, reduce the light.", hi: "ज़्यादा रोशनी है, कम करें।", mr: "खूप प्रकाश आहे, कमी करा." },
+  "distance:too_far": { en: "Move a little closer.", hi: "थोड़ा पास आइए।", mr: "थोडे जवळ या." },
+  "distance:too_close": { en: "Move back a little.", hi: "थोड़ा पीछे जाइए।", mr: "थोडे मागे जा." },
+  "centered:left": { en: "Move a little to your right.", hi: "थोड़ा दाईं तरफ जाइए।", mr: "थोडे उजवीकडे जा." },
+  "centered:right": { en: "Move a little to your left.", hi: "थोड़ा बाईं तरफ जाइए।", mr: "थोडे डावीकडे जा." },
+  "centered:up": { en: "Move down a little.", hi: "थोड़ा नीचे करें।", mr: "थोडे खाली करा." },
+  "centered:down": { en: "Move up a little.", hi: "थोड़ा ऊपर करें।", mr: "थोडे वर करा." },
+  "sharpness:blurry": { en: "Hold still for a moment.", hi: "कृपया एक पल स्थिर रहें।", mr: "कृपया क्षणभर स्थिर राहा." },
+};
+const CAPTURING_LINE: Record<VoiceLang, string> = { en: "Hold still, here we go!", hi: "स्थिर रहो, ले रही हूं!", mr: "स्थिर राहा, घेत आहे!" };
+const CAPTURED_LINE: Record<VoiceLang, string> = { en: "Got it, nice!", hi: "हो गया, बढ़िया!", mr: "झालं, छान!" };
 
 export interface CameraScannerHandle {
   start: () => void;
@@ -89,6 +109,10 @@ const CameraScanner = forwardRef<CameraScannerHandle, Props>(function CameraScan
   const capturingRef = useRef(false);
   const okStreak = useRef(0);
   const takeRef = useRef<(() => void) | null>(null);
+  const voice = useVoice();
+  const voiceRef = useRef(voice);
+  voiceRef.current = voice;
+  const lastHintRef = useRef<{ text: string; at: number }>({ text: "", at: 0 });
   const [auto, setAuto] = useState<boolean>(() => {
     try {
       return localStorage.getItem("foxtale_autocapture") === "on";
@@ -183,8 +207,23 @@ const CameraScanner = forwardRef<CameraScannerHandle, Props>(function CameraScan
             const c = res.checks;
             const allOk = !!res.face && !!c && c.lighting === "ok" && c.distance === "ok" && c.centered === "ok" && c.sharpness === "ok";
             okStreak.current = allOk ? okStreak.current + 1 : 0;
+
+            const v = voiceRef.current;
+            if (v.status?.enabled && v.state === "idle" && c && res.face) {
+              const failing = (["lighting", "distance", "centered", "sharpness"] as const).find((k) => c[k] !== "ok");
+              const key = failing ? `${failing}:${c[failing]}` : null;
+              const lang = v.status.language;
+              const phrase = key ? HINTS[key]?.[lang] : null;
+              const now = performance.now();
+              if (phrase && (phrase !== lastHintRef.current.text || now - lastHintRef.current.at > HINT_COOLDOWN_MS)) {
+                lastHintRef.current = { text: phrase, at: now };
+                void v.speakDirect(phrase);
+              }
+            }
+
             if (autoRef.current && okStreak.current >= 3 && !capturingRef.current) {
               okStreak.current = 0;
+              if (voiceRef.current.status?.enabled) void voiceRef.current.speakDirect(CAPTURING_LINE[voiceRef.current.status.language]);
               takeRef.current?.();
             }
           }
@@ -227,6 +266,7 @@ const CameraScanner = forwardRef<CameraScannerHandle, Props>(function CameraScan
     const best = usable.reduce((a, b) => (b.sharp > a.sharp ? b : a));
     setFlash((f) => f + 1);
     onCapture(best.canvas.toDataURL("image/jpeg", 0.92));
+    if (voiceRef.current.status?.enabled) void voiceRef.current.speakDirect(CAPTURED_LINE[voiceRef.current.status.language]);
     stop();
     setCapturing(false);
   }, [capturing, countdown, onCapture, stop]);
@@ -234,6 +274,18 @@ const CameraScanner = forwardRef<CameraScannerHandle, Props>(function CameraScan
   takeRef.current = () => {
     void takePhoto();
   };
+
+  // "Retake" by voice (see context/VoiceContext.tsx: the retake_photo action).
+  useEffect(() => {
+    const onVoiceRetake = () => {
+      if (capturedImage) {
+        onRetake();
+        start();
+      }
+    };
+    window.addEventListener("foxtale:voice-retake", onVoiceRetake);
+    return () => window.removeEventListener("foxtale:voice-retake", onVoiceRetake);
+  }, [capturedImage, onRetake, start]);
 
   const onFile = (file: File | undefined) => {
     if (!file) return;
@@ -247,7 +299,7 @@ const CameraScanner = forwardRef<CameraScannerHandle, Props>(function CameraScan
 
   return (
     <div className="flex flex-col items-center gap-5">
-      <div className="relative aspect-square w-full max-w-[520px] overflow-hidden rounded-[28px] bg-[#0b1224] shadow-card">
+      <div className="relative aspect-square w-full max-w-[520px] overflow-hidden rounded-[28px] bg-[#1c1915] shadow-card">
         {capturedImage ? (
           <img src={capturedImage} alt="Captured face" className="pop h-full w-full object-cover" />
         ) : (
@@ -319,7 +371,7 @@ const CameraScanner = forwardRef<CameraScannerHandle, Props>(function CameraScan
             </div>
             {count !== null && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                <span key={count} className="count-pop text-8xl font-extrabold text-white drop-shadow-lg">{count}</span>
+                <span key={count} className="count-pop text-8xl font-bold text-white drop-shadow-lg">{count}</span>
               </div>
             )}
           </>

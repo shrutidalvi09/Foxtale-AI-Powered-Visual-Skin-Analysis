@@ -12,15 +12,20 @@ export default {
         ink: "var(--ink)",
         muted: "var(--muted)",
         line: "var(--line)",
+        sidebar: "var(--sidebar)",
+        tint: "var(--tint)",
+        peach: "var(--peach)",
         fox: {
-          50: "#fff1e7",
-          100: "#ffe1c2",
-          300: "#ffb27a",
-          400: "#ff9f5a",
-          500: "#e54a00",
-          600: "#d43f00",
-          700: "#bf3800",
-          text: "#c2410c",
+          50: "#fdeee6",
+          100: "#fde0d0",
+          300: "#f7a27c",
+          400: "#f07a48",
+          // 500 is the brand accent (icons, bars, large display text). White text on it is only 3.7:1, so
+          // filled buttons use 600 (4.6:1, WCAG AA) and darken to 700 on hover; small orange text uses "text".
+          500: "#e34a01",
+          600: "#d14512",
+          700: "#b83c0f",
+          text: "#b83c0f",
         },
         accent: {
           400: "#5ea8ff",
@@ -29,11 +34,17 @@ export default {
         },
       },
       boxShadow: {
-        card: "0 6px 22px rgba(20, 30, 60, 0.07)",
-        glow: "0 10px 26px rgba(229, 74, 0, 0.32)",
+        card: "var(--shadow-card)",
+        "card-hover": "var(--shadow-card-hover)",
+        glow: "var(--shadow-glow)",
+      },
+      borderRadius: {
+        card: "var(--radius-card)",
+        hero: "var(--radius-hero)",
       },
       fontFamily: {
-        sans: ["Inter", "ui-sans-serif", "system-ui", "-apple-system", "Segoe UI", "Roboto", "sans-serif"],
+        display: ["var(--font-display)"],
+        sans: ["var(--font-sans)"],
       },
       animation: {
         "scan-line": "scanline 2.2s ease-in-out infinite",

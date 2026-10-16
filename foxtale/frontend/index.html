@@ -5,7 +5,7 @@
     <link rel="icon" type="image/png" href="/logo_mark.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <meta name="theme-color" content="#d43f00" />
+    <meta name="theme-color" content="#e8541e" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Foxtale" />
     <meta property="og:title" content="Foxtale - AI Skin Analysis" />
@@ -16,9 +16,129 @@
     <meta name="description" content="AI-powered visual skin observations from your webcam. Not a medical diagnosis." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
+    <script>
+      // Set the theme class before first paint, so the splash screen (and the app right
+      // after it) never flashes the wrong theme for a returning dark-mode user.
+      try {
+        var t = localStorage.getItem("foxtale_theme");
+        if (t === "dark" || (!t && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+          document.documentElement.classList.add("dark");
+        }
+      } catch (e) {}
+    </script>
+    <style>
+      #splash {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        background: #f5f6fa;
+        transition: opacity 0.45s ease, visibility 0.45s ease;
+      }
+      html.dark #splash {
+        background: #16100d;
+      }
+      #splash img {
+        width: 72px;
+        height: 72px;
+        object-fit: contain;
+        animation: splashPop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+      }
+      #splash .word {
+        font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+        font-weight: 800;
+        font-size: 28px;
+        color: #1e2433;
+        opacity: 0;
+        animation: splashFade 0.5s ease 0.15s both;
+      }
+      html.dark #splash .word {
+        color: #f5ede8;
+      }
+      #splash .word b {
+        color: #e8541e;
+      }
+      #splash .tagline {
+        font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+        font-size: 12.5px;
+        color: #626a7c;
+        opacity: 0;
+        animation: splashFade 0.5s ease 0.3s both;
+      }
+      html.dark #splash .tagline {
+        color: #b5a79f;
+      }
+      #splash .dots {
+        display: flex;
+        gap: 6px;
+        margin-top: 4px;
+      }
+      #splash .dots span {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #e8541e;
+        animation: splashBounce 1s ease-in-out infinite;
+      }
+      #splash .dots span:nth-child(2) {
+        animation-delay: 0.15s;
+      }
+      #splash .dots span:nth-child(3) {
+        animation-delay: 0.3s;
+      }
+      #splash.hide {
+        opacity: 0;
+        visibility: hidden;
+      }
+      @keyframes splashPop {
+        0% {
+          opacity: 0;
+          transform: scale(0.6) rotate(-8deg);
+        }
+        100% {
+          opacity: 1;
+          transform: scale(1) rotate(0);
+        }
+      }
+      @keyframes splashFade {
+        from {
+          opacity: 0;
+          transform: translateY(6px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      @keyframes splashBounce {
+        0%, 80%, 100% {
+          transform: scale(0.6);
+          opacity: 0.5;
+        }
+        40% {
+          transform: scale(1);
+          opacity: 1;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #splash * {
+          animation: none !important;
+        }
+      }
+    </style>
   </head>
   <body>
+    <div id="splash" aria-hidden="true">
+      <img src="/logo_mark.png" alt="" />
+      <div class="word">fox<b>tale</b></div>
+      <div class="dots"><span></span><span></span><span></span></div>
+      <div class="tagline">Private. Analysed on this device.</div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

@@ -1,7 +1,9 @@
 import { useEffect } from "react";
 import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import Layout from "./components/Layout";
+import VoiceAssistant from "./components/VoiceAssistant";
 import { AppProvider, useApp } from "./context/AppContext";
+import { VoiceProvider } from "./context/VoiceContext";
 import About from "./pages/About";
 import Analysis from "./pages/Analysis";
 import Compare from "./pages/Compare";
@@ -32,29 +34,32 @@ export default function App() {
   return (
     <AppProvider>
       <OnboardingGate />
-      <Layout>
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/welcome" element={<Welcome />} />
-          <Route path="/scan" element={<Scan />} />
-          <Route path="/analysis" element={<Analysis />} />
-          <Route path="/analysis/:id" element={<Analysis />} />
-          <Route path="/results" element={<Analysis />} />
-          <Route path="/routine" element={<Routine />} />
-          <Route path="/diary" element={<Diary />} />
-          <Route path="/shop" element={<Shop />} />
-          <Route path="/ingredients" element={<Ingredients />} />
-          <Route path="/history" element={<History />} />
-          <Route path="/compare" element={<Compare />} />
-          <Route path="/privacy" element={<Privacy />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/how-it-works" element={<HowItWorks />} />
-          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-          <Route path="/terms" element={<Terms />} />
-          <Route path="/about" element={<About />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </Layout>
+      <VoiceProvider>
+        <Layout>
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/welcome" element={<Welcome />} />
+            <Route path="/scan" element={<Scan />} />
+            <Route path="/analysis" element={<Analysis />} />
+            <Route path="/analysis/:id" element={<Analysis />} />
+            <Route path="/results" element={<Analysis />} />
+            <Route path="/routine" element={<Routine />} />
+            <Route path="/diary" element={<Diary />} />
+            <Route path="/shop" element={<Shop />} />
+            <Route path="/ingredients" element={<Ingredients />} />
+            <Route path="/history" element={<History />} />
+            <Route path="/compare" element={<Compare />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/how-it-works" element={<HowItWorks />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/about" element={<About />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Layout>
+        <VoiceAssistant />
+      </VoiceProvider>
     </AppProvider>
   );
 }

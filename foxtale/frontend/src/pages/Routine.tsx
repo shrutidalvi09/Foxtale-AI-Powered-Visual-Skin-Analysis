@@ -17,7 +17,7 @@ function Slot({
   return (
     <section className="card p-5 sm:p-6">
       <div className="flex items-center justify-between">
-        <h2 className="flex items-center gap-2.5 text-[15px] font-extrabold text-ink"><Icon size={18} className="text-fox-500" /> {title}</h2>
+        <h2 className="flex items-center gap-2.5 text-[15px] font-bold text-ink"><Icon size={18} className="text-fox-500" /> {title}</h2>
         <span className={`pill ${finished ? "pop lvl-minimal" : "bg-soft text-muted"}`}>{finished ? "All done" : `${done.filter((d) => items.some((s) => s.id === d)).length}/${items.length}`}</span>
       </div>
       <ul className="mt-4 space-y-2.5">
@@ -32,7 +32,7 @@ function Slot({
               >
                 <span className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-soft">{src && <img src={src} alt="" className="h-full w-full object-cover" />}</span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[11px] font-extrabold uppercase tracking-widest text-fox-500">{s.stepLabel}</span>
+                  <span className="block text-[11px] font-bold uppercase tracking-widest text-fox-500">{s.stepLabel}</span>
                   <span className={`block truncate text-sm font-bold ${on ? "text-muted line-through" : "text-ink"}`}>{s.name}</span>
                 </span>
                 <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border transition ${on ? "pop border-emerald-500 bg-emerald-500 text-white" : "border-line"}`}>{on && <Check size={15} />}</span>
@@ -95,14 +95,14 @@ export default function Routine() {
 
   return (
     <div>
-      <PageHeader title="My Routine" subtitle="Your morning and evening routine from your latest scan. Tick off each step as you do it." />
+      <PageHeader page="routine" title="My Routine" subtitle="Your morning and evening routine from your latest scan. Tick off each step as you do it." />
 
       <Reveal>
         <div className="card mb-6 grid gap-5 p-5 sm:grid-cols-[auto_1fr] sm:items-center sm:p-6">
           <div className="flex items-center gap-4">
             <span className="flex h-14 w-14 items-center justify-center rounded-full bg-fox-50 text-fox-500 dark:bg-fox-500/15"><Flame size={26} className={state && state.streak > 0 ? "flicker" : ""} /></span>
             <div>
-              <p className="text-3xl font-extrabold leading-none text-ink"><CountUp value={state?.streak ?? 0} /><span className="ml-1.5 text-base font-semibold text-muted">day streak</span></p>
+              <p className="text-3xl font-bold leading-none text-ink"><CountUp value={state?.streak ?? 0} /><span className="ml-1.5 text-base font-semibold text-muted">day streak</span></p>
               <p className="mt-1 text-sm text-muted">{doneToday}/{total} steps done today</p>
             </div>
           </div>

@@ -23,7 +23,7 @@ export const PHOTO_GROUPS: Record<string, { label: string; categories: string[] 
 };
 
 export const REGION_BUCKETS = ["Forehead", "Cheeks", "Nose", "Chin", "Others"] as const;
-export const BUCKET_COLORS = ["#e54a00", "#f5a524", "#3b8dff", "#12a06a", "#8b7fd6"];
+export const BUCKET_COLORS = ["#e8541e", "#f5a524", "#3b8dff", "#12a06a", "#8b7fd6"];
 
 export function regionBucket(name: string): (typeof REGION_BUCKETS)[number] {
   const n = name.toLowerCase();
@@ -57,7 +57,7 @@ export function RegionDonut({ regions }: { regions: RegionObservation[] }) {
             offset += len;
             return el;
           })}
-        <text x="65" y="72" textAnchor="middle" className="fill-ink text-[26px] font-extrabold">{total}</text>
+        <text x="65" y="72" textAnchor="middle" className="fill-ink text-[26px] font-bold">{total}</text>
       </svg>
       <ul className="space-y-1.5 text-sm">
         {REGION_BUCKETS.map((b, i) => (
@@ -100,7 +100,7 @@ export default function PhotoPanel({ image, regions, selected, onSelect, group, 
         </select>
       </div>
 
-      <div className="flex min-h-[320px] items-center justify-center overflow-hidden rounded-[20px] bg-[#0b1224] p-3">
+      <div className="flex min-h-[320px] items-center justify-center overflow-hidden rounded-[20px] bg-[#1c1915] p-3">
         {image ? (
           <div className="relative inline-block max-w-full">
             <img src={image} alt="Your scan with markers" className="block max-h-[540px] max-w-full rounded-xl" />

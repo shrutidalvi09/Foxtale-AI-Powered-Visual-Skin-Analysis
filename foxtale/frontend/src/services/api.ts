@@ -1,5 +1,8 @@
 import type {
+  AiAnalysis,
+  AiConsentStatus,
   AnalyzeResponse,
+  GuideReply,
   Insights,
   PrivacyStats,
   RegionObservation,
@@ -8,6 +11,9 @@ import type {
   Settings,
   SkinAnalysis,
   Quality,
+  VoiceLang,
+  VoiceStatus,
+  VoiceTranscript,
 } from "../types/analysis";
 
 export const API_BASE_URL: string = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
@@ -354,3 +360,26 @@ export interface DiaryPatterns {
 export const getDiary = (days = 60) => request<{ entries: DiaryEntry[]; flags: Record<string, string> }>(`/api/diary?days=${days}`);
 export const saveDiary = (day: string, e: Omit<DiaryEntry, "day">) => request<DiaryEntry>(`/api/diary/${day}`, json("PUT", e));
 export const getDiaryPatterns = () => request<DiaryPatterns>("/api/diary/patterns");
+
+// Custom Skin AI
+export const getAiStatus = () => request<AiConsentStatus>("/api/ai/status");
+export const setAiStatus = (enabled: boolean, improveConsent: boolean) =>
+  request<AiConsentStatus>("/api/ai/status", json("PUT", { enabled, improveConsent }));
+export const getAiAnalysis = (scanId: string) => request<AiAnalysis>(`/api/ai/${scanId}`);
+export const runAiAnalysis = (scanId: string) => request<{ ok: boolean }>(`/api/ai/${scanId}/run`, { method: "POST" });
+export const sendAiFeedback = (scanId: string, findingId: string, vote: "up" | "down", comment = "") =>
+  request<{ ok: boolean }>(`/api/ai/${scanId}/feedback`, json("POST", { findingId, vote, comment }));
+
+// Voice Guide
+export const getVoiceStatus = () => request<VoiceStatus>("/api/voice/status");
+export const setVoiceStatus = (patch: Partial<{
+  enabled: boolean; wakeWordEnabled: boolean; language: VoiceLang; speed: number; volume: number;
+  captionsEnabled: boolean; transcriptsConsent: boolean;
+}>) => request<VoiceStatus>("/api/voice/status", json("PUT", patch));
+export const askGuide = (args: {
+  sessionId: string; text: string; lang: VoiceLang; page: string; stateSummary: string; confirm?: boolean;
+}) => request<GuideReply>("/api/voice/ask", json("POST", args));
+export const clearVoiceSession = (sessionId: string) =>
+  request<{ ok: boolean }>(`/api/voice/session/${sessionId}/clear`, { method: "POST" });
+export const getVoiceTranscripts = () => request<VoiceTranscript[]>("/api/voice/transcripts");
+export const clearVoiceTranscripts = () => request<{ deleted: number }>("/api/voice/transcripts", { method: "DELETE" });

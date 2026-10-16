@@ -39,7 +39,7 @@ export default function Ingredients() {
 
   return (
     <div>
-      <PageHeader title="Ingredient Check" subtitle="Paste a product's ingredient list and see how it fits your skin, your profile and what you already use." />
+      <PageHeader page="ingredients" title="Ingredient Check" subtitle="Paste a product's ingredient list and see how it fits your skin, your profile and what you already use." />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div className="card p-5 sm:p-6">
@@ -65,7 +65,7 @@ export default function Ingredients() {
           {!result && (
             <div className="card flex h-full min-h-[260px] flex-col items-center justify-center p-8 text-center">
               <span className="pop float mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-fox-50 text-fox-500 dark:bg-fox-500/15"><FlaskConical size={24} /></span>
-              <p className="font-extrabold text-ink">Your result appears here</p>
+              <p className="font-bold text-ink">Your result appears here</p>
               <p className="mt-1 max-w-xs text-sm text-muted">We flag allergens, ingredients to avoid in pregnancy, irritants for sensitive skin, pore-cloggers for acne-prone skin, and clashes with your routine.</p>
             </div>
           )}
@@ -75,7 +75,7 @@ export default function Ingredients() {
           {result?.ok && v && VIcon && (
             <div className="space-y-4">
               <div className={`page-enter rounded-[20px] border p-5 ${v.box}`} role="status">
-                <p className="flex items-center gap-3 text-lg font-extrabold text-ink"><VIcon size={26} className={v.tone} /> {v.title}</p>
+                <p className="flex items-center gap-3 text-lg font-bold text-ink"><VIcon size={26} className={v.tone} /> {v.title}</p>
                 <p className="mt-2 text-sm text-ink">{result.summary}</p>
                 <p className="mt-2 text-xs text-muted">{result.counts?.recognised} of {result.counts?.ingredients} ingredients recognised.</p>
               </div>

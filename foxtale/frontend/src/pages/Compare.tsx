@@ -28,7 +28,7 @@ function BeforeAfter({ before, after }: { before: string; after: string }) {
   };
   return (
     <div
-      ref={box} className="relative mx-auto aspect-square w-full max-w-[460px] cursor-ew-resize touch-none select-none overflow-hidden rounded-[20px] bg-[#0b1224]"
+      ref={box} className="relative mx-auto aspect-square w-full max-w-[460px] cursor-ew-resize touch-none select-none overflow-hidden rounded-[20px] bg-[#1c1915]"
       onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); drag(e.clientX); }}
       onPointerMove={(e) => e.buttons && drag(e.clientX)}
     >
@@ -37,7 +37,7 @@ function BeforeAfter({ before, after }: { before: string; after: string }) {
       <span className="absolute left-3 top-3 rounded-full bg-black/60 px-3 py-1 text-xs font-bold text-white">Before</span>
       <span className="absolute right-3 top-3 rounded-full bg-black/60 px-3 py-1 text-xs font-bold text-white">After</span>
       <div className="absolute inset-y-0 w-0.5 bg-white shadow" style={{ left: `${pos}%` }}>
-        <span className={`absolute left-1/2 top-1/2 flex h-9 w-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white text-[#0b1224] shadow-lg transition-transform hover:scale-110 ${touched ? "" : "cta-pulse"}`}>⇄</span>
+        <span className={`absolute left-1/2 top-1/2 flex h-9 w-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white text-[#1c1915] shadow-lg transition-transform hover:scale-110 ${touched ? "" : "cta-pulse"}`}>⇄</span>
       </div>
     </div>
   );
@@ -67,7 +67,7 @@ export default function Compare() {
   if (scans.length < 2) {
     return (
       <div className="animate-fade-up">
-        <PageHeader title="Compare Scans" subtitle="Compare your skin scans to track changes and progress over time." />
+        <PageHeader page="compare" title="Compare Scans" subtitle="Compare your skin scans to track changes and progress over time." />
         <EmptyState
           icon={<GitCompare size={28} />} title="Need at least two saved scans"
           body="Save two or more scans (Save scan history must be on in Privacy) and you can compare them here."
@@ -83,12 +83,12 @@ export default function Compare() {
 
   return (
     <div className="animate-fade-up space-y-6">
-      <PageHeader title="Compare Scans" subtitle="Compare your skin scans to track changes and progress over time." />
+      <PageHeader page="compare" title="Compare Scans" subtitle="Compare your skin scans to track changes and progress over time." />
 
       <div className="card grid items-end gap-4 p-5 sm:grid-cols-[1fr_auto_1fr]">
         <label className="block"><span className="label-caps">Start scan</span>
           <select className="input mt-1.5" value={aId} onChange={(e) => setAId(e.target.value)}>{options}</select></label>
-        <span className="hidden pb-2.5 text-sm font-extrabold text-muted sm:block">VS</span>
+        <span className="hidden pb-2.5 text-sm font-bold text-muted sm:block">VS</span>
         <label className="block"><span className="label-caps">End scan</span>
           <select className="input mt-1.5" value={bId} onChange={(e) => setBId(e.target.value)}>{options}</select></label>
       </div>
@@ -116,7 +116,7 @@ export default function Compare() {
                   <span className="text-sm text-muted">Overall</span>
                   <b style={{ color: scoreColor(a!.analysis.overall_score!) }}>{a!.analysis.overall_score}</b><ArrowRight size={14} className="text-muted" />
                   <b style={{ color: scoreColor(b.analysis.overall_score!) }}>{b.analysis.overall_score}</b>
-                  <span className={`text-sm font-extrabold ${scoreDelta > 0 ? "text-emerald-600" : scoreDelta < 0 ? "text-rose-600" : "text-muted"}`}>{scoreDelta > 0 ? "+" : ""}{scoreDelta}</span>
+                  <span className={`text-sm font-bold ${scoreDelta > 0 ? "text-emerald-600" : scoreDelta < 0 ? "text-rose-600" : "text-muted"}`}>{scoreDelta > 0 ? "+" : ""}{scoreDelta}</span>
                 </div>
               )}
             </div>

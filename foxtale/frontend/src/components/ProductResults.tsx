@@ -74,7 +74,7 @@ export default function ProductResults() {
                 <div className="flex items-start gap-3">
                   <span className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-soft">{src && <img src={src} alt="" className="h-full w-full object-cover" loading="lazy" onError={(ev) => ((ev.target as HTMLImageElement).style.display = "none")} />}</span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-[13.5px] font-extrabold leading-snug text-ink">{e.name}</p>
+                    <p className="text-[13.5px] font-bold leading-snug text-ink">{e.name}</p>
                     <div className="mt-1 flex flex-wrap items-center gap-2"><span className={`pill ${st.cls}`}>{st.label}</span><span className="flex items-center gap-1 text-xs text-muted"><Clock size={12} /> {e.days} day{e.days === 1 ? "" : "s"}</span></div>
                   </div>
                 </div>

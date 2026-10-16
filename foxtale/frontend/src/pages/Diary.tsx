@@ -21,7 +21,7 @@ function Stepper({ label, value, unit, step, min, max, start, onChange }: { labe
       <p className="label-caps">{label}</p>
       <div className="mt-2 flex items-center gap-3">
         <button type="button" className="chip !h-10 !w-10 justify-center !p-0" aria-label={`Less ${label}`} onClick={() => onChange(value === undefined ? start : Math.max(min, v - step))}><Minus size={16} /></button>
-        <span className="min-w-[80px] text-center text-2xl font-extrabold text-ink">{value === undefined ? "--" : value}<span className="ml-1 text-xs font-semibold text-muted">{unit}</span></span>
+        <span className="min-w-[80px] text-center text-2xl font-bold text-ink">{value === undefined ? "--" : value}<span className="ml-1 text-xs font-semibold text-muted">{unit}</span></span>
         <button type="button" className="chip !h-10 !w-10 justify-center !p-0" aria-label={`More ${label}`} onClick={() => onChange(value === undefined ? start : Math.min(max, v + step))}><Plus size={16} /></button>
       </div>
     </div>
@@ -72,7 +72,7 @@ export default function Diary() {
 
   return (
     <div>
-      <PageHeader title="Skin Diary" subtitle="A minute a day: how your skin felt and what your day was like. After a couple of weeks, patterns start to show." />
+      <PageHeader page="diary" title="Skin Diary" subtitle="A minute a day: how your skin felt and what your day was like. After a couple of weeks, patterns start to show." />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
         <div className="space-y-6">
@@ -138,7 +138,7 @@ export default function Diary() {
           <Reveal index={1}>
             <section className="card p-5 sm:p-6">
               <div className="flex items-center justify-between">
-                <h2 className="text-[15px] font-extrabold text-ink">Last 30 days</h2>
+                <h2 className="text-[15px] font-bold text-ink">Last 30 days</h2>
                 <span className="flex items-center gap-1.5 text-sm font-bold text-ink"><Flame size={16} className={patterns && patterns.streak > 0 ? "flicker text-fox-500" : "text-muted"} /> {patterns?.streak ?? 0} day streak</span>
               </div>
               {!loaded ? <Skeleton className="mt-4 h-24" /> : (

@@ -8,7 +8,7 @@ import { Reveal } from "../lib/motion";
 
 const STEP_STYLE: Record<string, { from: string; to: string; body: string }> = {
   cleanse: { from: "#e4f1ff", to: "#cfe4fb", body: "#3b8dff" },
-  treat: { from: "#ffece0", to: "#ffd9c2", body: "#e54a00" },
+  treat: { from: "#ffece0", to: "#ffd9c2", body: "#e8541e" },
   eye: { from: "#efe6ff", to: "#dccdfb", body: "#7c3aed" },
   moisturize: { from: "#e0f6ef", to: "#c8ecdf", body: "#12a06a" },
   protect: { from: "#fff5d9", to: "#ffe9ae", body: "#e0a100" },
@@ -65,15 +65,15 @@ export function ProductCard({ s, index, onOwned, wished, onWish, showIndex = tru
       </div>
 
       <div className="mt-3 flex items-center justify-between">
-        <span className="text-[11px] font-extrabold uppercase tracking-widest text-fox-500">{showIndex ? `${index} · ` : ""}{s.stepLabel}</span>
+        <span className="text-[11px] font-bold uppercase tracking-widest text-fox-500">{showIndex ? `${index} · ` : ""}{s.stepLabel}</span>
         <span className="pill bg-soft text-muted">{s.when}</span>
       </div>
-      <h3 className="mt-1.5 min-h-[2.6rem] text-[13.5px] font-extrabold leading-snug text-ink">{s.name}</h3>
+      <h3 className="mt-1.5 min-h-[2.6rem] text-[13.5px] font-bold leading-snug text-ink">{s.name}</h3>
 
       <div className="mt-1 flex items-baseline gap-2">
         {s.price ? (
           <>
-            <span className="text-lg font-extrabold text-ink">{rupees(s.price)}</span>
+            <span className="text-lg font-bold text-ink">{rupees(s.price)}</span>
             <span className="text-[11px] text-muted">{s.priceSource === "retailer_mrp" ? "MRP" : "on foxtale.in"} · {s.size}</span>
           </>
         ) : (
@@ -179,7 +179,7 @@ export default function Skincare({ skincare, onOwned, wishlist, onWish }: { skin
 
       {skincare.notes.length > 0 && (
         <div className="mt-4 space-y-1.5 rounded-2xl border border-fox-500/25 bg-fox-50 p-4 text-[12.5px] leading-relaxed text-ink dark:bg-fox-500/10">
-          <p className="flex items-center gap-2 font-extrabold"><Info size={15} className="text-fox-500" /> Personalised for you</p>
+          <p className="flex items-center gap-2 font-bold"><Info size={15} className="text-fox-500" /> Personalised for you</p>
           {skincare.notes.map((n) => <p key={n} className="text-muted">{n}</p>)}
         </div>
       )}

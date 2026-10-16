@@ -57,7 +57,7 @@ export default function WeatherCard() {
   if (!w.configured) {
     return (
       <section className="card p-5 sm:p-6">
-        <h2 className="flex items-center gap-2.5 text-[15px] font-extrabold text-ink"><Sun size={18} className="text-fox-500" /> Skin weather</h2>
+        <h2 className="flex items-center gap-2.5 text-[15px] font-bold text-ink"><Sun size={18} className="text-fox-500" /> Skin weather</h2>
         <p className="mt-1 text-sm text-muted">Add your city to see today's UV, humidity and air quality with skincare tips that fit them. Only the city name is used.</p>
         {form}
       </section>
@@ -67,7 +67,7 @@ export default function WeatherCard() {
   return (
     <section className="card p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <h2 className="flex items-center gap-2.5 text-[15px] font-extrabold text-ink"><Sun size={18} className="text-fox-500" /> Skin weather today</h2>
+        <h2 className="flex items-center gap-2.5 text-[15px] font-bold text-ink"><Sun size={18} className="text-fox-500" /> Skin weather today</h2>
         <div className="flex items-center gap-3 text-xs">
           <span className="flex items-center gap-1 text-muted"><MapPin size={12} /> {w.city}</span>
           <button className="font-bold text-fox-text underline dark:text-fox-300" onClick={() => setEditing((v) => !v)}>Change</button>
@@ -86,7 +86,7 @@ export default function WeatherCard() {
             ].map((m) => (
               <div key={m.label} className="rounded-2xl bg-soft p-3.5">
                 <p className="label-caps">{m.label}</p>
-                <p className={`mt-1 text-2xl font-extrabold ${m.cls}`}>{m.value}</p>
+                <p className={`mt-1 text-2xl font-bold ${m.cls}`}>{m.value}</p>
                 {m.sub && <p className="text-[11px] text-muted">{m.sub}</p>}
               </div>
             ))}
@@ -96,7 +96,7 @@ export default function WeatherCard() {
               const Icon = ICONS[t.icon] ?? Sun;
               return (
                 <li key={t.title} className={`page-enter rounded-2xl border p-3.5 ${TONE[t.tone]}`}>
-                  <p className="flex items-center gap-2 text-sm font-extrabold text-ink"><Icon size={16} className="text-fox-500" /> {t.title}</p>
+                  <p className="flex items-center gap-2 text-sm font-bold text-ink"><Icon size={16} className="text-fox-500" /> {t.title}</p>
                   <p className="mt-1 text-[13px] leading-relaxed text-muted">{t.text}</p>
                   {t.productNames.length > 0 && <p className="mt-1.5 text-[12px] text-ink">Try: {t.productNames.join(" · ")} <Link to="/shop" className="font-bold text-fox-text underline dark:text-fox-300">Shop</Link></p>}
                 </li>

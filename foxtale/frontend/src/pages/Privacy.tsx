@@ -60,7 +60,7 @@ export default function Privacy() {
 
   return (
     <div className="animate-fade-up space-y-6">
-      <PageHeader title="Privacy Dashboard" subtitle="Your data stays on your computer. No tracking, no third-party services." />
+      <PageHeader page="privacy" title="Privacy Dashboard" subtitle="Your data stays on your computer. No tracking, no third-party services." />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
@@ -72,7 +72,7 @@ export default function Privacy() {
           <Reveal key={label} index={i}>
             <div className="card lift flex items-center gap-4 p-5">
               <IconBadge><Icon size={18} /></IconBadge>
-              <div><p className="text-xl font-extrabold text-ink">{value}</p><p className="text-sm text-muted">{label}</p></div>
+              <div><p className="text-xl font-bold text-ink">{value}</p><p className="text-sm text-muted">{label}</p></div>
             </div>
           </Reveal>
         ))}

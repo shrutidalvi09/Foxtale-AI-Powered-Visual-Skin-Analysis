@@ -13,7 +13,7 @@ const CARDS = [
 export default function About() {
   return (
     <div className="mx-auto max-w-3xl">
-      <PageHeader title="About Foxtale" />
+      <PageHeader page="info" title="About Foxtale" />
       <p className="text-muted">
         Foxtale is an AI-powered visual skin analysis tool. It uses your camera to capture a photo, finds your face locally, isolates
         the skin, and measures visible characteristics: acne-like spots, redness, texture, dryness, oiliness and tone evenness, then
@@ -24,7 +24,7 @@ export default function About() {
           <Reveal key={title} index={i} className="h-full">
           <div className="card lift h-full p-5">
             <IconBadge><Icon size={18} /></IconBadge>
-            <h3 className="mt-3 font-extrabold text-ink">{title}</h3>
+            <h3 className="mt-3 font-bold text-ink">{title}</h3>
             <p className="mt-1 text-sm text-muted">{body}</p>
           </div>
           </Reveal>

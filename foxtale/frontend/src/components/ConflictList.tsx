@@ -30,7 +30,7 @@ export default function ConflictList({ issues, emptyText = "No clashes found in 
         const Icon = st.icon;
         return (
           <li key={i.title + i.products.join()} className={`page-enter rounded-2xl border p-4 ${st.box}`}>
-            <p className="flex items-start gap-2.5 text-sm font-extrabold text-ink"><Icon size={18} className={`mt-0.5 shrink-0 ${st.tone}`} /> <span><span className={`mr-2 text-[10.5px] uppercase tracking-widest ${st.tone}`}>{st.label}</span>{i.title}</span></p>
+            <p className="flex items-start gap-2.5 text-sm font-bold text-ink"><Icon size={18} className={`mt-0.5 shrink-0 ${st.tone}`} /> <span><span className={`mr-2 text-[10.5px] uppercase tracking-widest ${st.tone}`}>{st.label}</span>{i.title}</span></p>
             <p className="mt-1.5 text-[13px] leading-relaxed text-muted">{i.detail}</p>
             <p className="mt-1.5 text-[13px] leading-relaxed text-ink"><b>What to do:</b> {i.fix}</p>
             {i.products.length > 0 && <p className="mt-1.5 text-[11.5px] text-muted">{i.products.join(" · ")}</p>}

@@ -6,8 +6,8 @@ import { EmptyState, PageHeader } from "../components/ui";
 function Doc({ title, updated, children }: { title: string; updated?: string; children: ReactNode }) {
   return (
     <div className="mx-auto max-w-3xl">
-      <PageHeader title={title} subtitle={updated ? `Last updated ${updated}` : undefined} />
-      <div className="card space-y-5 p-6 text-[14.5px] leading-relaxed text-ink sm:p-8 [&_h2]:mt-2 [&_h2]:text-lg [&_h2]:font-extrabold [&_ul]:list-disc [&_ul]:space-y-1.5 [&_ul]:pl-5">
+      <PageHeader page="info" title={title} subtitle={updated ? `Last updated ${updated}` : undefined} />
+      <div className="card space-y-5 p-6 text-[14.5px] leading-relaxed text-ink sm:p-8 [&_h2]:mt-2 [&_h2]:text-lg [&_h2]:font-bold [&_ul]:list-disc [&_ul]:space-y-1.5 [&_ul]:pl-5">
         {children}
       </div>
     </div>
@@ -73,11 +73,11 @@ const FAQ: [string, string][] = [
 export function HowItWorks() {
   return (
     <div className="mx-auto max-w-3xl">
-      <PageHeader title="How it works and FAQ" subtitle="What Foxtale measures, how, and how far to trust it." />
+      <PageHeader page="info" title="How it works and FAQ" subtitle="What Foxtale measures, how, and how far to trust it." />
       <div className="space-y-3">
         {FAQ.map(([q, a]) => (
           <details key={q} className="card group p-5 open:border-fox-300">
-            <summary className="cursor-pointer list-none text-[15px] font-extrabold text-ink marker:hidden">{q}</summary>
+            <summary className="cursor-pointer list-none text-[15px] font-bold text-ink marker:hidden">{q}</summary>
             <p className="mt-3 text-sm leading-relaxed text-muted">{a}</p>
           </details>
         ))}

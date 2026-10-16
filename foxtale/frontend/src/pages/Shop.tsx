@@ -37,8 +37,8 @@ function ComboCard({ c, matched, index }: { c: Combo; matched: string[]; index: 
           <img src={comboImageUrl(c.image)} alt={c.name} loading="lazy" className="h-full w-full object-cover" />
           {matched.length > 0 && <span className="pill absolute left-2 top-2 bg-fox-600 text-white shadow-glow">Good match for you</span>}
         </div>
-        <h3 className="mt-3 text-[14px] font-extrabold leading-snug text-ink">{c.name}</h3>
-        <p className="mt-1 text-xl font-extrabold text-ink">{rupees(c.price_inr)} <span className="text-[11px] font-normal text-muted">on foxtale.in</span></p>
+        <h3 className="mt-3 text-[14px] font-bold leading-snug text-ink">{c.name}</h3>
+        <p className="mt-1 text-xl font-bold text-ink">{rupees(c.price_inr)} <span className="text-[11px] font-normal text-muted">on foxtale.in</span></p>
         <div className="mt-2 flex flex-wrap gap-1.5">
           {c.concerns.map((k) => <span key={k} className={`pill ${matched.includes(k) ? "bg-fox-50 text-fox-text dark:bg-fox-500/15 dark:text-fox-300" : "bg-soft text-muted"}`}>{CONCERN_LABEL[k] ?? k}</span>)}
           {c.highlights.map((h) => <span key={h} className="pill bg-soft text-muted">{h}</span>)}
@@ -136,7 +136,7 @@ export default function Shop() {
 
   return (
     <div>
-      <PageHeader title="Shop Foxtale" subtitle="Every Foxtale product and combo in one place, ranked for your skin. Buying happens on foxtale.in." />
+      <PageHeader page="shop" title="Shop Foxtale" subtitle="Every Foxtale product and combo in one place, ranked for your skin. Buying happens on foxtale.in." />
 
       <div className="card mb-5 p-4">
         <div className="flex flex-wrap items-center gap-3">

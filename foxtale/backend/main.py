@@ -25,6 +25,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from core import conflicts, delivery, diary, digest, effects, ingredients, insights, report_builder, storage, weather, whatsapp
+from core import guide_service, skin_ai_analyst
 from engine.face_detection import detect_face
 from engine.image_processing import split_regions
 from engine.quality import compute_quality
@@ -129,8 +130,14 @@ async def analyze(background_tasks: BackgroundTasks, image: UploadFile = File(..
     if delivering:
         storage.set_delivery(scan["id"], "pending")
         background_tasks.add_task(delivery.deliver_new_scan, scan, cv_image, previous)
+
+    ai_running = bool(settings.get("ai_enabled"))
+    if ai_running:
+        storage.ai_set(scan["id"], status="pending")
+        background_tasks.add_task(skin_ai_analyst.run_for_scan, scan["id"], cv_image, face.box, analysis, quality)
+
     return {"faceDetected": True, "scan": scan, "disclaimer": DISCLAIMER,
-            "whatsapp": "pending" if delivering else None}
+            "whatsapp": "pending" if delivering else None, "ai": "pending" if ai_running else None}
 
 
 def _capture_checks(frame, box) -> Dict[str, str]:
@@ -717,3 +724,134 @@ def whatsapp_resend(scan_id: str, background_tasks: BackgroundTasks) -> Dict[str
     storage.set_delivery(scan_id, "pending")
     background_tasks.add_task(delivery.resend, scan_id)
     return {"ok": True}
+
+
+# ----------------------------------------------------------------- custom skin ai
+
+class AiConsentBody(BaseModel):
+    enabled: bool
+    improveConsent: bool = False
+
+
+@app.get("/api/ai/status")
+def ai_status() -> Dict[str, Any]:
+    return skin_ai_analyst.consent_status()
+
+
+@app.put("/api/ai/status")
+def ai_set_status(body: AiConsentBody) -> Dict[str, Any]:
+    return skin_ai_analyst.set_consent(body.enabled, body.improveConsent)
+
+
+@app.get("/api/ai/{scan_id}")
+def ai_get(scan_id: str) -> Dict[str, Any]:
+    return skin_ai_analyst.get(scan_id)
+
+
+@app.post("/api/ai/{scan_id}/run")
+def ai_run(scan_id: str, background_tasks: BackgroundTasks) -> Dict[str, Any]:
+    """Manually (re-)run the AI layer for an existing, saved scan -- used when AI consent is
+    turned on after the scan was taken, or to retry after a failure."""
+    from engine.quality import QualityResult
+    from engine.schemas import SkinAnalysis
+
+    if not storage.load_settings().get("ai_enabled"):
+        raise HTTPException(status_code=409, detail="Turn on AI insights in Settings first.")
+    scan = storage.get_scan(scan_id)
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found.")
+    path = storage.image_path(scan_id)
+    if not path:
+        raise HTTPException(status_code=422, detail="This scan has no saved photo to analyse (turn on 'Save scan photos' for future scans).")
+    image = cv2.imread(str(path))
+    face = detect_face(image)
+    if not face.ok:
+        raise HTTPException(status_code=422, detail="Could not find a face in the saved photo.")
+    analysis = SkinAnalysis.from_dict(scan["analysis"])
+    quality = QualityResult.from_dict(scan["quality"]) if scan.get("quality") else None
+    storage.ai_set(scan_id, status="pending")
+    background_tasks.add_task(skin_ai_analyst.run_for_scan, scan_id, image, face.box, analysis, quality)
+    return {"ok": True}
+
+
+class AiFeedbackBody(BaseModel):
+    findingId: str
+    vote: str  # "up" | "down"
+    comment: str = ""
+
+
+@app.post("/api/ai/{scan_id}/feedback")
+def ai_feedback(scan_id: str, body: AiFeedbackBody) -> Dict[str, bool]:
+    if not storage.load_settings().get("ai_improve_consent"):
+        raise HTTPException(status_code=409, detail="Turn on 'Help improve Foxtale AI' in Settings to send feedback.")
+    if body.vote not in ("up", "down"):
+        raise HTTPException(status_code=422, detail="vote must be 'up' or 'down'.")
+    skin_ai_analyst.add_feedback(scan_id, body.findingId, body.vote, body.comment)
+    return {"ok": True}
+
+
+# ----------------------------------------------------------------- voice guide
+
+class VoiceStatusBody(BaseModel):
+    enabled: Optional[bool] = None
+    wakeWordEnabled: Optional[bool] = None
+    language: Optional[str] = None
+    speed: Optional[float] = None
+    volume: Optional[float] = None
+    captionsEnabled: Optional[bool] = None
+    transcriptsConsent: Optional[bool] = None
+
+
+@app.get("/api/voice/status")
+def voice_status() -> Dict[str, Any]:
+    return guide_service.status()
+
+
+@app.put("/api/voice/status")
+def voice_set_status(body: VoiceStatusBody) -> Dict[str, Any]:
+    patch = {k: v for k, v in body.model_dump().items() if v is not None}
+    if "language" in patch and patch["language"] not in ("en", "hi", "mr"):
+        raise HTTPException(status_code=422, detail="language must be 'en', 'hi' or 'mr'.")
+    if "speed" in patch:
+        patch["speed"] = max(0.5, min(2.0, float(patch["speed"])))
+    if "volume" in patch:
+        patch["volume"] = max(0.0, min(1.0, float(patch["volume"])))
+    return guide_service.set_status(patch)
+
+
+class VoiceAskBody(BaseModel):
+    sessionId: str
+    text: str
+    lang: str = "en"
+    page: str = ""
+    stateSummary: str = ""
+    confirm: Optional[bool] = None
+
+
+@app.post("/api/voice/ask")
+def voice_ask(body: VoiceAskBody) -> Dict[str, Any]:
+    if not body.sessionId or len(body.sessionId) > 100:
+        raise HTTPException(status_code=422, detail="Invalid sessionId.")
+    lang = body.lang if body.lang in ("en", "hi", "mr") else "en"
+    return guide_service.ask(
+        session_id=body.sessionId, text=body.text[:500], lang=lang,  # type: ignore[arg-type]
+        page=body.page[:60], state_summary=body.stateSummary[:800], confirm=body.confirm,
+    )
+
+
+@app.post("/api/voice/session/{session_id}/clear")
+def voice_clear_session(session_id: str) -> Dict[str, bool]:
+    guide_service.clear_session(session_id)
+    return {"ok": True}
+
+
+@app.get("/api/voice/transcripts")
+def voice_transcripts() -> List[Dict[str, Any]]:
+    if not storage.load_settings().get("voice_transcripts_consent"):
+        return []
+    return storage.guide_transcript_list()
+
+
+@app.delete("/api/voice/transcripts")
+def voice_transcripts_clear() -> Dict[str, int]:
+    return {"deleted": storage.guide_transcripts_clear()}
